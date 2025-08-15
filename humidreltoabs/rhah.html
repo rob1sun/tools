@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luftfuktighetskalkylator (med Daggpunkt)</title>
+    <style>
+        /* --- CSS inbakat här --- */
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px; /* Lägg till lite padding för små skärmar */
+            box-sizing: border-box; /* Se till att padding inte lägger till total bredd */
+        }
+
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 90%;
+            max-width: 450px; /* Öka bredden något för de nya resultaten */
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 25px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: bold;
+        }
+
+        .input-group input[type="number"] {
+            width: calc(100% - 20px);
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box; /* Ensures padding doesn't add to total width */
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 5px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .result {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+
+        .result h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .result p {
+            font-size: 18px; /* Justera storlek för flera rader */
+            color: #007bff;
+            font-weight: bold;
+            margin-bottom: 8px; /* Mellanslag mellan resultatrader */
+        }
+
+        .result p:last-child {
+            margin-bottom: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Beräkna Luftfuktighet & Daggpunkt</h1>
+        <div class="input-group">
+            <label for="temperature">Temperatur (°C):</label>
+            <input type="number" id="temperature" value="20" step="0.1">
+        </div>
+        <div class="input-group">
+            <label for="humidity">Relativ Luftfuktighet (%):</label>
+            <input type="number" id="humidity" value="50" step="0.1">
+        </div>
+        <button id="calculateBtn">Beräkna</button>
+        <div class="result">
+            <h2>Resultat:</h2>
+            <p id="absoluteHumidity">Absolut Luftfuktighet: -- g/m³</p>
+            <p id="dewPoint">Daggpunkt: -- °C</p>
+        </div>
+    </div>
+
+    <script>
+        /* --- JavaScript inbakat här --- */
+        document.addEventListener('DOMContentLoaded', () => {
+            const temperatureInput = document.getElementById('temperature');
+            const humidityInput = document.getElementById('humidity');
+            const calculateBtn = document.getElementById('calculateBtn');
+            const absoluteHumidityDisplay = document.getElementById('absoluteHumidity');
+            const dewPointDisplay = document.getElementById('dewPoint'); // Nytt element för daggpunkt
+
+            calculateBtn.addEventListener('click', calculateHumidityAndDewPoint);
+
+            function calculateHumidityAndDewPoint() {
+                const T = parseFloat(temperatureInput.value); // Temperatur i °C
+                const RH = parseFloat(humidityInput.value); // Relativ luftfuktighet i %
+
+                // Validera input
+                if (isNaN(T) || isNaN(RH)) {
+                    absoluteHumidityDisplay.textContent = 'Absolut Luftfuktighet: Ogiltig inmatning';
+                    dewPointDisplay.textContent = 'Daggpunkt: Ogiltig inmatning';
+                    absoluteHumidityDisplay.style.color = 'red';
+                    dewPointDisplay.style.color = 'red';
+                    return;
+                }
+                if (RH < 0 || RH > 100) {
+                    absoluteHumidityDisplay.textContent = 'Absolut Luftfuktighet: RH måste vara mellan 0 och 100%';
+                    dewPointDisplay.textContent = 'Daggpunkt: RH måste vara mellan 0 och 100%';
+                    absoluteHumidityDisplay.style.color = 'red';
+                    dewPointDisplay.style.color = 'red';
+                    return;
+                }
+
+                // --- Beräkning av absolut luftfuktighet (samma som tidigare) ---
+                // Steg 1: Beräkna mättnadsångtrycket (Ps)
+                // Magnus-Tetens formel: Ps = 6.112 * e^((17.67 * T) / (T + 243.5))
+                const Ps = 6.112 * Math.exp((17.67 * T) / (T + 243.5)); // i hPa
+
+                // Steg 2: Beräkna det faktiska ångtrycket (Pa)
+                // Pa = Ps * (RH / 100)
+                const Pa_hPa = Ps * (RH / 100); // i hPa
+                const Pa_Pa = Pa_hPa * 100; // omvandla till Pascal
+
+                // Steg 3: Beräkna den absoluta luftfuktigheten (AH)
+                // AH = (Pa * Mv) / (R * Tk)
+                const Mv = 0.01802; // Molmassa för vattenånga (kg/mol)
+                const R = 8.314; // Ideala gaskonstanten (J/(mol·K))
+                const Tk = T + 273.15; // Temperatur i Kelvin
+
+                const AH_kg_per_m3 = (Pa_Pa * Mv) / (R * Tk); // i kg/m³
+                const AH_g_per_m3 = AH_kg_per_m3 * 1000; // omvandla till g/m³
+
+                // Visa resultat för absolut luftfuktighet
+                absoluteHumidityDisplay.textContent = `Absolut Luftfuktighet: ${AH_g_per_m3.toFixed(2)} g/m³`;
+                absoluteHumidityDisplay.style.color = '#007bff';
+
+                // --- Beräkning av Daggpunkt (ny del) ---
+                // En vanlig och relativt noggrann formel för daggpunkt:
+                // Td = b * alpha / (a - alpha)
+                // där alpha = ln(RH/100) + (a * T) / (b + T)
+                // Konstanter från Magnus-Tetens (Alduchov and Eskridge approximation):
+                const a = 17.27;
+                const b = 237.7;
+
+                const alpha = Math.log(RH / 100) + (a * T) / (b + T);
+                const Td = (b * alpha) / (a - alpha); // Daggpunkt i °C
+
+                // Visa resultat för daggpunkt
+                dewPointDisplay.textContent = `Daggpunkt: ${Td.toFixed(2)} °C`;
+                dewPointDisplay.style.color = '#007bff'; // Återställ färg till standard
+            }
+
+            // Kör beräkningen direkt vid sidladdning med standardvärden
+            calculateHumidityAndDewPoint();
+        });
+    </script>
+</body>
+</html>
