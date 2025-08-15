@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ta bort lösenord från PDF</title>
+    <!-- Inkluderar Tailwind CSS för styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inkluderar pdf-lib biblioteket för PDF-hantering -->
+    <script src="https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Anpassad stil för filuppladdningsknapp */
+        .file-input-button {
+            cursor: pointer;
+            display: inline-block;
+            text-align: center;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+        .file-input-button:hover {
+            background-color: #f3f4f6; /* Ljusare grå vid hover */
+        }
+        /* Dölj den faktiska filinputen */
+        input[type="file"] {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+
+    <div class="w-full max-w-md mx-auto bg-white rounded-xl shadow-lg p-8 space-y-6">
+        <!-- Rubrik och beskrivning -->
+        <div class="text-center">
+            <h1 class="text-3xl font-bold text-gray-800">PDF Lösenordsborttagare</h1>
+            <p class="text-gray-500 mt-2">Ladda upp en krypterad PDF, ange lösenordet och ladda ner den olåsta versionen.</p>
+        </div>
+
+        <!-- Formulär för uppladdning -->
+        <div class="space-y-4">
+            <div>
+                <!-- Anpassad filuppladdningsknapp -->
+                <label for="pdfFile" class="file-input-button w-full border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <span id="fileName" class="mt-2 block text-sm font-medium text-gray-600">Klicka för att välja en PDF-fil</span>
+                </label>
+                <input type="file" id="pdfFile" accept=".pdf" class="hidden">
+            </div>
+            
+            <!-- Lösenordsfält -->
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Lösenord</label>
+                <input type="password" id="password" placeholder="Ange PDF-lösenordet" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+            </div>
+        </div>
+
+        <!-- Knapp för att ta bort lösenord -->
+        <button id="unlockButton" class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-300 ease-in-out disabled:bg-gray-400">
+            Lås upp och ta bort lösenord
+        </button>
+
+        <!-- Meddelande- och nedladdningsområde -->
+        <div id="status" class="text-center text-sm font-medium pt-2"></div>
+        <div id="downloadArea" class="hidden text-center">
+            <a id="downloadLink" class="w-full inline-block bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700 transition duration-300 ease-in-out">
+                Ladda ner olåst PDF
+            </a>
+        </div>
+        
+        <!-- Notis om begränsningar -->
+        <div class="text-center text-xs text-gray-400 pt-4">
+            <p>Observera: Detta verktyg kanske inte fungerar med alla typer av PDF-kryptering.</p>
+        </div>
+    </div>
+
+    <script>
+        // Hämta referenser till HTML-element
+        const pdfFileInput = document.getElementById('pdfFile');
+        const passwordInput = document.getElementById('password');
+        const unlockButton = document.getElementById('unlockButton');
+        const statusDiv = document.getElementById('status');
+        const downloadArea = document.getElementById('downloadArea');
+        const downloadLink = document.getElementById('downloadLink');
+        const fileNameSpan = document.getElementById('fileName');
+
+        // Lyssna efter filval och uppdatera texten
+        pdfFileInput.addEventListener('change', () => {
+            if (pdfFileInput.files.length > 0) {
+                fileNameSpan.textContent = pdfFileInput.files[0].name;
+                fileNameSpan.classList.add('text-indigo-600');
+                // Återställ status när en ny fil väljs
+                statusDiv.textContent = '';
+                downloadArea.classList.add('hidden');
+            } else {
+                fileNameSpan.textContent = 'Klicka för att välja en PDF-fil';
+                fileNameSpan.classList.remove('text-indigo-600');
+            }
+        });
+
+        // Huvudfunktion för att låsa upp PDF
+        unlockButton.addEventListener('click', async () => {
+            const file = pdfFileInput.files[0];
+            const password = passwordInput.value;
+
+            // Validering
+            if (!file) {
+                showStatus('Vänligen välj en PDF-fil.', 'error');
+                return;
+            }
+            if (!password) {
+                showStatus('Vänligen ange ett lösenord.', 'error');
+                return;
+            }
+
+            // Återställ UI
+            setLoadingState(true);
+            
+            const fileReader = new FileReader();
+            fileReader.readAsArrayBuffer(file);
+            
+            fileReader.onload = async (event) => {
+                const pdfBytes = event.target.result;
+
+                try {
+                    // Försök ladda PDF:en med det angivna lösenordet
+                    const { PDFDocument } = PDFLib;
+                    const pdfDoc = await PDFDocument.load(pdfBytes, {
+                        password: password,
+                        // Denna inställning är viktig för att hantera kryptering korrekt
+                        ignoreEncryption: false 
+                    });
+
+                    // Spara PDF:en utan kryptering
+                    const unlockedPdfBytes = await pdfDoc.save();
+
+                    // Skapa en nedladdningslänk
+                    const blob = new Blob([unlockedPdfBytes], { type: 'application/pdf' });
+                    const url = URL.createObjectURL(blob);
+                    
+                    downloadLink.href = url;
+                    // Sätt ett nytt filnamn för den olåsta filen
+                    const originalName = file.name.replace(/\.pdf$/i, '');
+                    downloadLink.download = `${originalName}_unlocked.pdf`;
+                    
+                    downloadArea.classList.remove('hidden');
+                    showStatus('PDF:en är upplåst! Klicka nedan för att ladda ner.', 'success');
+
+                } catch (err) {
+                    // Fånga fel och ge ett mer informativt meddelande
+                    console.error("Fel vid upplåsning av PDF:", err);
+                    showStatus('Fel lösenord eller ett PDF-format/kryptering som inte stöds.', 'error');
+                } finally {
+                    setLoadingState(false);
+                }
+            };
+            
+            fileReader.onerror = () => {
+                showStatus('Ett fel uppstod vid läsning av filen.', 'error');
+                setLoadingState(false);
+            };
+        });
+
+        // Funktion för att visa statusmeddelanden
+        function showStatus(message, type = 'info') {
+            statusDiv.textContent = message;
+            statusDiv.classList.remove('text-red-600', 'text-green-600', 'text-gray-600');
+            if (type === 'error') {
+                statusDiv.classList.add('text-red-600');
+            } else if (type === 'success') {
+                statusDiv.classList.add('text-green-600');
+            } else {
+                statusDiv.classList.add('text-gray-600');
+            }
+        }
+
+        // Funktion för att hantera laddningsläge
+        function setLoadingState(isLoading) {
+            if (isLoading) {
+                unlockButton.disabled = true;
+                unlockButton.textContent = 'Arbetar...';
+                showStatus('Låser upp PDF, vänligen vänta...', 'info');
+                downloadArea.classList.add('hidden');
+            } else {
+                unlockButton.disabled = false;
+                unlockButton.textContent = 'Lås upp och ta bort lösenord';
+            }
+        }
+    </script>
+
+</body>
+</html>
