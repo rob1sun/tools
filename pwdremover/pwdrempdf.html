@@ -6,8 +6,10 @@
     <title>Ta bort lösenord från PDF (WASM-version)</title>
     <!-- Inkluderar Tailwind CSS för styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Inkluderar qpdf-wasm biblioteket. Detta är "motorn". -->
-    <script src="https://cdn.jsdelivr.net/npm/qpdf-wasm@1.0.3/dist/qpdf-wasm.js"></script>
+    <!-- Inkluderar qpdf-wasm biblioteket med säkerhetsintegritet -->
+    <script src="https://cdn.jsdelivr.net/npm/qpdf-wasm@1.0.3/dist/qpdf-wasm.js" 
+            xintegrity="sha384-b03fPR04i3y3q27y2ZW22N2aH2iQUP5XhQ2An9eURb22rO0yI240H2s2Tf2s+O2+" 
+            crossorigin="anonymous"></script>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     <style>
         body {
@@ -99,7 +101,6 @@
         const fileNameSpan = document.getElementById('fileName');
         const buttonText = document.getElementById('buttonText');
 
-        // Funktion för att visa statusmeddelanden
         function showStatus(message, type = 'info') {
             statusDiv.textContent = message;
             statusDiv.classList.remove('text-red-600', 'text-green-600', 'text-gray-600');
@@ -108,12 +109,17 @@
             else statusDiv.classList.add('text-gray-600');
         }
         
-        // Självkörande asynkron funktion för att hantera initiering
         (async function main() {
             showStatus('Laddar PDF-motorn, vänligen vänta...', 'info');
             
+            // Kontrollera först om skriptet för motorn har laddats
+            if (typeof window.qpdfWasm === 'undefined') {
+                showStatus('Kritiskt fel: Kunde inte ladda skriptet för PDF-motorn. Detta kan bero på nätverksblockeringar eller webbläsartillägg.', 'error');
+                buttonText.textContent = 'Fel vid laddning';
+                return;
+            }
+
             try {
-                // Initiera qpdf-wasm och vänta på att det blir klart.
                 const qpdf = window.qpdfWasm;
                 await qpdf.init();
 
@@ -126,13 +132,11 @@
 
             } catch (err) {
                 console.error("Kunde inte initiera WASM-modulen:", err);
-                showStatus('Kritiskt fel: Kunde inte ladda PDF-motorn. Prova att ladda om sidan.', 'error');
-                buttonText.textContent = 'Fel vid laddning';
-                // Håll UI inaktiverat
+                showStatus('Kritiskt fel: Kunde inte starta PDF-motorn. Prova att ladda om sidan, kontrollera din nätverksanslutning eller inaktivera webbläsartillägg.', 'error');
+                buttonText.textContent = 'Fel vid start';
                 return;
             }
 
-            // Lyssna efter filval och uppdatera texten
             pdfFileInput.addEventListener('change', () => {
                 if (pdfFileInput.files.length > 0) {
                     fileNameSpan.textContent = pdfFileInput.files[0].name;
@@ -145,23 +149,15 @@
                 }
             });
 
-            // Huvudfunktion för att låsa upp PDF
             unlockButton.addEventListener('click', async () => {
                 const file = pdfFileInput.files[0];
                 const password = passwordInput.value;
 
-                if (!file) {
-                    showStatus('Vänligen välj en PDF-fil.', 'error');
-                    return;
-                }
-                if (!password) {
-                    showStatus('Vänligen ange ett lösenord.', 'error');
-                    return;
-                }
+                if (!file) { showStatus('Vänligen välj en PDF-fil.', 'error'); return; }
+                if (!password) { showStatus('Vänligen ange ett lösenord.', 'error'); return; }
 
                 setLoadingState(true);
                 
-                // Använd en setTimeout för att säkerställa att UI hinner uppdateras till laddningsläge
                 setTimeout(async () => {
                     try {
                         const fileBuffer = await file.arrayBuffer();
@@ -189,10 +185,9 @@
                     } finally {
                         setLoadingState(false);
                     }
-                }, 50); // Kort fördröjning
+                }, 50);
             });
-
-        })(); // Slut på den asynkrona huvudfunktionen
+        })();
 
         function setLoadingState(isLoading) {
             unlockButton.disabled = isLoading;
