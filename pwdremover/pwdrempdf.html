@@ -17,10 +17,14 @@
             cursor: pointer;
             display: inline-block;
             text-align: center;
-            transition: background-color 0.3s, border-color 0.3s;
+            transition: background-color 0.3s, border-color 0.3s, opacity 0.3s;
         }
-        .file-input-button:hover {
+        .file-input-button:hover:not(.disabled) {
             background-color: #f3f4f6;
+        }
+        .file-input-button.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
         input[type="file"] {
             display: none;
@@ -54,23 +58,23 @@
         <!-- Formulär för uppladdning -->
         <div class="space-y-4">
             <div>
-                <label for="pdfFile" class="file-input-button w-full border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                <label for="pdfFile" id="fileInputLabel" class="file-input-button w-full border-2 border-dashed border-gray-300 rounded-lg p-6 text-center disabled">
                     <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
                         <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                     <span id="fileName" class="mt-2 block text-sm font-medium text-gray-600">Klicka för att välja en PDF-fil</span>
                 </label>
-                <input type="file" id="pdfFile" accept=".pdf" class="hidden">
+                <input type="file" id="pdfFile" accept=".pdf" class="hidden" disabled>
             </div>
             
             <div>
                 <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Lösenord</label>
-                <input type="password" id="password" placeholder="Ange PDF-lösenordet" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                <input type="password" id="password" placeholder="Ange PDF-lösenordet" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" disabled>
             </div>
         </div>
 
         <!-- Knapp för att ta bort lösenord -->
-        <button id="unlockButton" class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-300 ease-in-out disabled:bg-gray-400 flex items-center justify-center">
+        <button id="unlockButton" class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-300 ease-in-out disabled:bg-gray-400 flex items-center justify-center" disabled>
             <span id="buttonText">Lås upp och ta bort lösenord</span>
         </button>
 
@@ -84,12 +88,8 @@
     </div>
 
     <script>
-        // Initiera qpdf-wasm. Detta laddar den underliggande WASM-modulen.
-        // Det är viktigt att detta görs innan vi försöker använda biblioteket.
-        const qpdf = window.qpdfWasm;
-        qpdf.init();
-
         // Hämta referenser till HTML-element
+        const fileInputLabel = document.getElementById('fileInputLabel');
         const pdfFileInput = document.getElementById('pdfFile');
         const passwordInput = document.getElementById('password');
         const unlockButton = document.getElementById('unlockButton');
@@ -99,68 +99,7 @@
         const fileNameSpan = document.getElementById('fileName');
         const buttonText = document.getElementById('buttonText');
 
-        // Lyssna efter filval och uppdatera texten
-        pdfFileInput.addEventListener('change', () => {
-            if (pdfFileInput.files.length > 0) {
-                fileNameSpan.textContent = pdfFileInput.files[0].name;
-                fileNameSpan.classList.add('text-indigo-600');
-                statusDiv.textContent = '';
-                downloadArea.classList.add('hidden');
-            } else {
-                fileNameSpan.textContent = 'Klicka för att välja en PDF-fil';
-                fileNameSpan.classList.remove('text-indigo-600');
-            }
-        });
-
-        // Huvudfunktion för att låsa upp PDF
-        unlockButton.addEventListener('click', async () => {
-            const file = pdfFileInput.files[0];
-            const password = passwordInput.value;
-
-            if (!file) {
-                showStatus('Vänligen välj en PDF-fil.', 'error');
-                return;
-            }
-            if (!password) {
-                showStatus('Vänligen ange ett lösenord.', 'error');
-                return;
-            }
-
-            setLoadingState(true);
-            
-            try {
-                // Läs filen som en Uint8Array, vilket är formatet qpdf-wasm förväntar sig.
-                const fileBuffer = await file.arrayBuffer();
-                const pdfBytes = new Uint8Array(fileBuffer);
-
-                // Anropa WASM-motorn för att dekryptera filen.
-                // Detta är kärnan i operationen. Biblioteket hanterar all komplexitet.
-                const unlockedPdfBytes = qpdf.decrypt(pdfBytes, password);
-
-                // Skapa en nedladdningslänk från resultatet
-                const blob = new Blob([unlockedPdfBytes], { type: 'application/pdf' });
-                const url = URL.createObjectURL(blob);
-                
-                downloadLink.href = url;
-                const originalName = file.name.replace(/\.pdf$/i, '');
-                downloadLink.download = `${originalName}_unlocked.pdf`;
-                
-                downloadArea.classList.remove('hidden');
-                showStatus('PDF:en är upplåst! Klicka nedan för att ladda ner.', 'success');
-
-            } catch (err) {
-                console.error("Fel vid upplåsning av PDF med WASM:", err);
-                // WASM-biblioteket ger ofta mer detaljerade fel.
-                let errorMessage = 'Kunde inte låsa upp PDF. Kontrollera lösenordet eller så är filen skadad.';
-                if (err.message && err.message.includes('invalid password')) {
-                    errorMessage = 'Fel lösenord angivet.';
-                }
-                showStatus(errorMessage, 'error');
-            } finally {
-                setLoadingState(false);
-            }
-        });
-
+        // Funktion för att visa statusmeddelanden
         function showStatus(message, type = 'info') {
             statusDiv.textContent = message;
             statusDiv.classList.remove('text-red-600', 'text-green-600', 'text-gray-600');
@@ -168,12 +107,98 @@
             else if (type === 'success') statusDiv.classList.add('text-green-600');
             else statusDiv.classList.add('text-gray-600');
         }
+        
+        // Självkörande asynkron funktion för att hantera initiering
+        (async function main() {
+            showStatus('Laddar PDF-motorn, vänligen vänta...', 'info');
+            
+            try {
+                // Initiera qpdf-wasm och vänta på att det blir klart.
+                const qpdf = window.qpdfWasm;
+                await qpdf.init();
+
+                // Aktivera UI när motorn är redo
+                pdfFileInput.disabled = false;
+                passwordInput.disabled = false;
+                unlockButton.disabled = false;
+                fileInputLabel.classList.remove('disabled');
+                showStatus('PDF-motorn är redo. Välj en fil.', 'success');
+
+            } catch (err) {
+                console.error("Kunde inte initiera WASM-modulen:", err);
+                showStatus('Kritiskt fel: Kunde inte ladda PDF-motorn. Prova att ladda om sidan.', 'error');
+                buttonText.textContent = 'Fel vid laddning';
+                // Håll UI inaktiverat
+                return;
+            }
+
+            // Lyssna efter filval och uppdatera texten
+            pdfFileInput.addEventListener('change', () => {
+                if (pdfFileInput.files.length > 0) {
+                    fileNameSpan.textContent = pdfFileInput.files[0].name;
+                    fileNameSpan.classList.add('text-indigo-600');
+                    statusDiv.textContent = '';
+                    downloadArea.classList.add('hidden');
+                } else {
+                    fileNameSpan.textContent = 'Klicka för att välja en PDF-fil';
+                    fileNameSpan.classList.remove('text-indigo-600');
+                }
+            });
+
+            // Huvudfunktion för att låsa upp PDF
+            unlockButton.addEventListener('click', async () => {
+                const file = pdfFileInput.files[0];
+                const password = passwordInput.value;
+
+                if (!file) {
+                    showStatus('Vänligen välj en PDF-fil.', 'error');
+                    return;
+                }
+                if (!password) {
+                    showStatus('Vänligen ange ett lösenord.', 'error');
+                    return;
+                }
+
+                setLoadingState(true);
+                
+                // Använd en setTimeout för att säkerställa att UI hinner uppdateras till laddningsläge
+                setTimeout(async () => {
+                    try {
+                        const fileBuffer = await file.arrayBuffer();
+                        const pdfBytes = new Uint8Array(fileBuffer);
+
+                        const unlockedPdfBytes = window.qpdfWasm.decrypt(pdfBytes, password);
+
+                        const blob = new Blob([unlockedPdfBytes], { type: 'application/pdf' });
+                        const url = URL.createObjectURL(blob);
+                        
+                        downloadLink.href = url;
+                        const originalName = file.name.replace(/\.pdf$/i, '');
+                        downloadLink.download = `${originalName}_unlocked.pdf`;
+                        
+                        downloadArea.classList.remove('hidden');
+                        showStatus('PDF:en är upplåst! Klicka nedan för att ladda ner.', 'success');
+
+                    } catch (err) {
+                        console.error("Fel vid upplåsning av PDF med WASM:", err);
+                        let errorMessage = 'Kunde inte låsa upp PDF. Kontrollera lösenordet eller så är filen skadad.';
+                        if (err.message && err.message.includes('invalid password')) {
+                            errorMessage = 'Fel lösenord angivet.';
+                        }
+                        showStatus(errorMessage, 'error');
+                    } finally {
+                        setLoadingState(false);
+                    }
+                }, 50); // Kort fördröjning
+            });
+
+        })(); // Slut på den asynkrona huvudfunktionen
 
         function setLoadingState(isLoading) {
             unlockButton.disabled = isLoading;
             if (isLoading) {
                 buttonText.innerHTML = '<span class="loader"></span>Arbetar...';
-                showStatus('Dekrypterar med WASM-motorn, vänligen vänta...', 'info');
+                showStatus('Dekrypterar med WASM-motorn...', 'info');
                 downloadArea.classList.add('hidden');
             } else {
                 buttonText.innerHTML = 'Lås upp och ta bort lösenord';
