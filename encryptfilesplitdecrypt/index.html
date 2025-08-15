@@ -9,10 +9,17 @@
 </head>
 <body>
   <h1>Verktygspar för att kryptera, dela upp fil och dekryptera</h1>
+    
   <p>Det här verktyget har två syften:
 </br>1. Ersätta metoden att lösenordsskydda ett dokument eller att zippa det krypterat och sedan skicka lösenordet till mottagaren. Istället använder vi en säkrare metod baserad på kryptering med mottagarens publika nyckel
 </br>2. Dela upp filer större än 20 MB för att inte hindras av storleksbegränsning av bifogade filer i mejl</p>
-</br><p>Verktyget är byggt för att köras helt och hållet i webbläsaren. Inga filer laddas upp till någon server. Man kan ladda ner koden och köra den direkt från sin dator.</p>
+<p>Verktyget är byggt för att köras helt och hållet i webbläsaren. Inga filer laddas upp till någon server. Man kan ladda ner koden och köra den direkt från sin dator.</p>
+
+    <h2>Apparna</h2>
+    <a href=https://tools.robertsundin.se/encryptfilesplitdecrypt/sender.html>Sändarapp (krypterar och delar upp filer)</a>
+    <a href=https://tools.robertsundin.se/encryptfilesplitdecrypt/receiver.html>Mottagarapp (dekrypterar och monterar ihop filer)</a>
+
+    
   <h2>Nyckelpar</h2>
     <p>I "sändarappen" är mottagarens publika nyckel hårdkodad medan man i "mottagarappen" sparar en krypterad kopia av den privata nyckeln i webbläsarens IndexedDB. Användaren låser upp nyckeln med ett lösenord.</p>
   <p>Verktyget i sig innehåller ingen funktion för att generera själva nyckelparet men det finns ett annat verktyg på den här webbplatsen som bland annat kan generera nyckelpar.</p>
