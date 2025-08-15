@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Säker Kryptering med Lösenordsskyddad Nyckel</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; color: #1c1e21; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; } main { background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); width: 100%; max-width: 700px; padding: 2rem; margin-bottom: 2rem; } h1, h2 { border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-top: 0; color: #0056b3; } h2 { margin-top: 2rem; border-bottom-width: 1px; } .section { margin-bottom: 2rem; } .key-container { margin-top: 1.5rem; } label { display: block; font-weight: 600; margin-bottom: 8px; } textarea { width: 100%; min-height: 120px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: "Courier New", Courier, monospace; font-size: 0.9rem; box-sizing: border-box; resize: vertical; } textarea[readonly] { background-color: #e9ecef; } input[type="password"], input[type="text"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; } button { color: white; border: none; padding: 12px 20px; border-radius: 5px; cursor: pointer; font-size: 1rem; font-weight: 500; transition: background-color 0.2s; } #generate-keys-btn, #encrypt-btn { background-color: #007bff; margin-top: 10px; } #generate-keys-btn:hover, #encrypt-btn:hover { background-color: #0056b3; } #decrypt-btn { background-color: #28a745; margin-top: 10px; } #decrypt-btn:hover { background-color: #218838; } button:disabled { background-color: #a0c7ef; cursor: not-allowed; } .button-group { display: flex; gap: 10px; margin-top: 8px; } .button-group button { padding: 8px 12px; font-size: 0.8rem; } .copy-btn { background-color: #6c757d; } .copy-btn:hover { background-color: #5a6268; } .copy-btn:disabled { background-color: #5a6268; cursor: not-allowed; } .download-btn { background-color: #17a2b8; } .download-btn:hover { background-color: #138496; } .key-file-input { display: block; margin-top: 10px; font-size: 0.9rem; } .drop-zone { border: 2px dashed #ccc; border-radius: 8px; padding: 25px; text-align: center; color: #6c757d; cursor: pointer; transition: background-color 0.2s, border-color 0.2s; margin-top: 1rem; } .drop-zone.dragover { border-color: #007bff; background-color: #f0f8ff; } .drop-zone input[type="file"] { display: none; } .status { margin-top: 15px; padding: 10px; border-radius: 5px; text-align: center; font-weight: 500; } .status.success { background-color: #d4edda; color: #155724; } .status.error { background-color: #f8d7da; color: #721c24; } .status.info { background-color: #cce5ff; color: #004085; } .important-note { color: #dc3545; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Säker Kryptering med Lösenordsskydd</h1>
+        <p>Generera nycklar, kryptera filer och dekryptera dem med en lösenordsskyddad privat nyckel.</p>
+        
+        <div class="section">
+            <h2>1. Generera RSA-Nyckelpar</h2>
+            <button id="generate-keys-btn">Generera Nycklar</button>
+            <div class="key-container">
+                <label for="public-key-display">Publik Nyckel (för kryptering - kan delas)</label>
+                <textarea id="public-key-display" readonly placeholder="Din publika nyckel kommer att visas här..."></textarea>
+                <div class="button-group">
+                    <button id="copy-public-key-btn" class="copy-btn">Kopiera</button>
+                    <button id="download-public-key-btn" class="download-btn">Ladda ner</button>
+                </div>
+            </div>
+            <div class="key-container">
+                <label for="private-key-display">Privat Nyckel (visas temporärt)</label>
+                <textarea id="private-key-display" readonly placeholder="Din privata nyckel kommer att visas här..."></textarea>
+                <div class="button-group">
+                    <button id="download-private-key-btn" class="download-btn">Ladda ner skyddad nyckel</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>2. Kryptera ett Dokument</h2>
+            <label for="public-key-input">Klistra in mottagarens <span class="important-note">PUBLIKA</span> nyckel här</label>
+            <textarea id="public-key-input" placeholder="..."></textarea>
+            <input type="file" id="public-key-file-input" class="key-file-input" accept=".jwk,.json,.txt">
+            
+            <label for="file-input" style="margin-top: 1.5rem;">Välj fil som ska krypteras:</label>
+            <div id="encrypt-drop-zone" class="drop-zone">
+                <p>Dra och släpp filen här, eller klicka för att välja fil</p>
+                <input type="file" id="file-input">
+            </div>
+            <button id="encrypt-btn">Kryptera och Ladda Ner</button>
+        </div>
+        
+        <div class="section">
+            <h2>3. Dekryptera ett Dokument</h2>
+            <label for="private-key-file-input">Ladda upp din <span class="important-note">lösenordsskyddade</span> privata nyckelfil:</label>
+            <input type="file" id="private-key-file-input" class="key-file-input" accept=".enc.jwk">
+            
+            <label for="private-key-password" style="margin-top: 1rem;">Ange lösenordet för din privata nyckel:</label>
+            <input type="password" id="private-key-password" placeholder="Skriv in ditt lösenord...">
+
+            <label for="encrypted-file-input" style="margin-top: 1.5rem;">Välj den krypterade filen:</label>
+            <div id="decrypt-drop-zone" class="drop-zone">
+                 <p>Dra och släpp filen här, eller klicka för att välja fil</p>
+                <input type="file" id="encrypted-file-input">
+            </div>
+            <button id="decrypt-btn">Dekryptera och Ladda Ner</button>
+        </div>
+
+        <div id="status-container" class="status" style="display:none;"></div>
+    </main>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // DOM Elements
+        const statusContainer = document.getElementById('status-container');
+        const generateBtn = document.getElementById('generate-keys-btn');
+        const publicKeyDisplay = document.getElementById('public-key-display');
+        const privateKeyDisplay = document.getElementById('private-key-display');
+        const copyPublicKeyBtn = document.getElementById('copy-public-key-btn');
+        const downloadPublicKeyBtn = document.getElementById('download-public-key-btn');
+        const downloadPrivateKeyBtn = document.getElementById('download-private-key-btn');
+        const publicKeyInput = document.getElementById('public-key-input');
+        const publicKeyFileInput = document.getElementById('public-key-file-input');
+        const fileInput = document.getElementById('file-input');
+        const encryptBtn = document.getElementById('encrypt-btn');
+        const encryptDropZone = document.getElementById('encrypt-drop-zone');
+        const privateKeyFileInput = document.getElementById('private-key-file-input');
+        const privateKeyPasswordInput = document.getElementById('private-key-password');
+        const encryptedFileInput = document.getElementById('encrypted-file-input');
+        const decryptBtn = document.getElementById('decrypt-btn');
+        const decryptDropZone = document.getElementById('decrypt-drop-zone');
+
+        // Crypto Constants
+        const RSA_KEY_LENGTH = 2048;
+        const ENCRYPTED_KEY_SIZE_BYTES = RSA_KEY_LENGTH / 8;
+        const IV_SIZE_BYTES = 12; // For AES-GCM
+        const SALT_SIZE_BYTES = 16; // For PBKDF2
+        const PBKDF2_ITERATIONS = 100000;
+
+        const showStatus = (message, type = 'info') => { statusContainer.textContent = message; statusContainer.className = `status ${type}`; statusContainer.style.display = 'block'; };
+        const triggerDownload = (blob, fileName) => { const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.style.display = 'none'; a.href = url; a.download = fileName; document.body.appendChild(a); a.click(); URL.revokeObjectURL(url); a.remove(); };
+        const setupDropZone = (dropZoneElement, inputElement) => { const text = dropZoneElement.querySelector('p'); dropZoneElement.addEventListener('click', () => inputElement.click()); ['dragover','dragleave','drop'].forEach(ev => dropZoneElement.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); if(ev === 'dragover') dropZoneElement.classList.add('dragover'); else dropZoneElement.classList.remove('dragover'); })); dropZoneElement.addEventListener('drop', e => { if (e.dataTransfer.files.length) { inputElement.files = e.dataTransfer.files; text.textContent = `Vald fil: ${e.dataTransfer.files[0].name}`; } }); inputElement.addEventListener('change', e => { if (e.target.files.length) text.textContent = `Vald fil: ${e.target.files[0].name}`; }); };
+        const handleKeyFileUpload = (fileInputElement, textAreaElement) => { fileInputElement.addEventListener('change', e => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = event => { textAreaElement.value = event.target.result; }; reader.readAsText(file); }); };
+        
+        async function generateKeyPair() {
+            try {
+                showStatus('Genererar RSA-nycklar...', 'info');
+                generateBtn.disabled = true;
+                const keyPair = await window.crypto.subtle.generateKey({ name: 'RSA-OAEP', modulusLength: RSA_KEY_LENGTH, publicExponent: new Uint8Array([0x01, 0x00, 0x01]), hash: 'SHA-256' }, true, ['encrypt', 'decrypt']);
+                const publicKeyJwk = await window.crypto.subtle.exportKey('jwk', keyPair.publicKey);
+                const privateKeyJwk = await window.crypto.subtle.exportKey('jwk', keyPair.privateKey);
+                publicKeyDisplay.value = JSON.stringify(publicKeyJwk, null, 2);
+                privateKeyDisplay.value = JSON.stringify(privateKeyJwk, null, 2);
+                showStatus('Nyckelpar genererat!', 'success');
+            } catch (error) {
+                showStatus(`Fel vid nyckelgenerering: ${error.message}`, 'error');
+            } finally {
+                generateBtn.disabled = false;
+            }
+        }
+
+        async function downloadEncryptedPrivateKey() {
+            const privateKeyText = privateKeyDisplay.value;
+            if (!privateKeyText) return showStatus('Generera ett nyckelpar först.', 'error');
+            
+            const password = prompt("Välj ett starkt lösenord för att skydda din privata nyckel:", "");
+            if (!password) return showStatus('Ingen lösenord angavs. Avbryter.', 'info');
+
+            try {
+                showStatus('Krypterar privat nyckel...', 'info');
+                const salt = window.crypto.getRandomValues(new Uint8Array(SALT_SIZE_BYTES));
+                const keyMaterial = await window.crypto.subtle.importKey('raw', new TextEncoder().encode(password), { name: 'PBKDF2' }, false, ['deriveKey']);
+                const aesKey = await window.crypto.subtle.deriveKey({ name: 'PBKDF2', salt: salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' }, keyMaterial, { name: 'AES-GCM', length: 256 }, true, ['encrypt']);
+                const iv = window.crypto.getRandomValues(new Uint8Array(IV_SIZE_BYTES));
+                const encryptedPrivateKey = await window.crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, aesKey, new TextEncoder().encode(privateKeyText));
+                
+                const blob = new Blob([salt, iv, new Uint8Array(encryptedPrivateKey)]);
+                triggerDownload(blob, 'private_key.enc.jwk');
+                showStatus('Lösenordsskyddad privat nyckel har laddats ner.', 'success');
+
+            } catch (error) {
+                showStatus(`Fel vid kryptering av nyckel: ${error.message}`, 'error');
+            }
+        }
+
+        async function encryptAndDownload() {
+            if (!publicKeyInput.value) return showStatus('Du måste ange en publik RSA-nyckel.', 'error');
+            if (fileInput.files.length === 0) return showStatus('Du måste välja en fil att kryptera.', 'error');
+            try {
+                showStatus('Startar kryptering...', 'info');
+                encryptBtn.disabled = true;
+                const rsaPublicKey = await window.crypto.subtle.importKey('jwk', JSON.parse(publicKeyInput.value), { name: 'RSA-OAEP', hash: 'SHA-256' }, true, ['encrypt']);
+                const aesKey = await window.crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt']);
+                const exportedAesKey = await window.crypto.subtle.exportKey('raw', aesKey);
+                const encryptedAesKey = await window.crypto.subtle.encrypt({ name: 'RSA-OAEP' }, rsaPublicKey, exportedAesKey);
+                const iv = window.crypto.getRandomValues(new Uint8Array(IV_SIZE_BYTES));
+                const fileBuffer = await fileInput.files[0].arrayBuffer();
+                const ciphertext = await window.crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, aesKey, fileBuffer);
+                const finalBlob = new Blob([encryptedAesKey, iv, ciphertext]);
+                triggerDownload(finalBlob, `krypterad-${fileInput.files[0].name}`);
+                showStatus('Filen har krypterats!', 'success');
+            } catch (error) {
+                showStatus(`Krypteringsfel: ${error.message}.`, 'error');
+            } finally {
+                encryptBtn.disabled = false;
+            }
+        }
+
+        async function decryptAndDownload() {
+            if (privateKeyFileInput.files.length === 0) return showStatus('Du måste ladda upp din skyddade privata nyckel.', 'error');
+            if (!privateKeyPasswordInput.value) return showStatus('Du måste ange lösenordet för nyckeln.', 'error');
+            if (encryptedFileInput.files.length === 0) return showStatus('Du måste välja en krypterad fil.', 'error');
+            
+            try {
+                showStatus('Startar dekryptering...', 'info');
+                decryptBtn.disabled = true;
+                
+                // 1. Decrypt the private key
+                const encryptedKeyBuffer = await privateKeyFileInput.files[0].arrayBuffer();
+                const salt = encryptedKeyBuffer.slice(0, SALT_SIZE_BYTES);
+                const ivKey = encryptedKeyBuffer.slice(SALT_SIZE_BYTES, SALT_SIZE_BYTES + IV_SIZE_BYTES);
+                const keyData = encryptedKeyBuffer.slice(SALT_SIZE_BYTES + IV_SIZE_BYTES);
+                
+                const keyMaterial = await window.crypto.subtle.importKey('raw', new TextEncoder().encode(privateKeyPasswordInput.value), { name: 'PBKDF2' }, false, ['deriveKey']);
+                const aesKeyForKey = await window.crypto.subtle.deriveKey({ name: 'PBKDF2', salt: salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' }, keyMaterial, { name: 'AES-GCM', length: 256 }, true, ['decrypt']);
+                const privateKeyBytes = await window.crypto.subtle.decrypt({ name: 'AES-GCM', iv: ivKey }, aesKeyForKey, keyData);
+                const privateKeyJwk = JSON.parse(new TextDecoder().decode(privateKeyBytes));
+                
+                // 2. Import the now-decrypted private key
+                const rsaPrivateKey = await window.crypto.subtle.importKey('jwk', privateKeyJwk, { name: 'RSA-OAEP', hash: 'SHA-256' }, true, ['decrypt']);
+                
+                // 3. Decrypt the file
+                const combinedBuffer = await encryptedFileInput.files[0].arrayBuffer();
+                const encryptedAesKey = combinedBuffer.slice(0, ENCRYPTED_KEY_SIZE_BYTES);
+                const ivFile = combinedBuffer.slice(ENCRYPTED_KEY_SIZE_BYTES, ENCRYPTED_KEY_SIZE_BYTES + IV_SIZE_BYTES);
+                const ciphertext = combinedBuffer.slice(ENCRYPTED_KEY_SIZE_BYTES + IV_SIZE_BYTES);
+                const decryptedAesKeyBytes = await window.crypto.subtle.decrypt({ name: 'RSA-OAEP' }, rsaPrivateKey, encryptedAesKey);
+                const aesKeyForFile = await window.crypto.subtle.importKey('raw', decryptedAesKeyBytes, { name: 'AES-GCM' }, true, ['decrypt']);
+                const decryptedBuffer = await window.crypto.subtle.decrypt({ name: 'AES-GCM', iv: ivFile }, aesKeyForFile, ciphertext);
+                
+                const originalFileName = encryptedFileInput.files[0].name.replace(/^krypterad-/, '');
+                triggerDownload(new Blob([decryptedBuffer]), originalFileName);
+                showStatus('Filen har dekrypterats!', 'success');
+            } catch (error) {
+                showStatus(`Dekryptering misslyckades. Kontrollera lösenord och filer. (${error.message})`, 'error');
+            } finally {
+                decryptBtn.disabled = false;
+            }
+        }
+        
+        generateBtn.addEventListener('click', generateKeyPair);
+        downloadPublicKeyBtn.addEventListener('click', () => { if(publicKeyDisplay.value) triggerDownload(new Blob([publicKeyDisplay.value], {type: 'application/json'}), 'public_key.jwk'); });
+        copyPublicKeyBtn.addEventListener('click', () => { if(publicKeyDisplay.value) navigator.clipboard.writeText(publicKeyDisplay.value); });
+        downloadPrivateKeyBtn.addEventListener('click', downloadEncryptedPrivateKey);
+        encryptBtn.addEventListener('click', encryptAndDownload);
+        decryptBtn.addEventListener('click', decryptAndDownload);
+        handleKeyFileUpload(publicKeyFileInput, publicKeyInput);
+        setupDropZone(encryptDropZone, fileInput);
+        setupDropZone(decryptDropZone, encryptedFileInput);
+    });
+    </script>
+</body>
+</html>
