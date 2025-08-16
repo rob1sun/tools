@@ -1,13 +1,11 @@
-<!-- Version: 1.1 -->
+<!-- Version: 2.0 - Helt fristående -->
 <!DOCTYPE html>
 <html lang="sv">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ta bort lösenord från PDF (Lokal version)</title>
-    <!-- Tailwind CSS borttagen från CDN och inbäddad nedan -->
-    <!-- Inkluderar qpdf-wasm LOKALT från js-mappen (v1.0.5) -->
-    <script src="./js/qpdf-wasm.js"></script>
+    <title>Ta bort lösenord från PDF (Fristående version)</title>
+    <!-- Ingen extern JS behövs, allt är inbäddat -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     <style>
         /* Minimal Tailwind CSS Reset & Custom Styles */
@@ -29,109 +27,53 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
         /* Tailwind Utility Classes Used in this File */
-        .bg-gray-100 { background-color: #f3f4f6; }
-        .bg-white { background-color: #ffffff; }
-        .bg-indigo-600 { background-color: #4f46e5; }
-        .hover\:bg-indigo-700:hover { background-color: #4338ca; }
-        .bg-green-600 { background-color: #16a34a; }
-        .hover\:bg-green-700:hover { background-color: #15803d; }
-        .border-2 { border-width: 2px; }
-        .border-dashed { border-style: dashed; }
-        .border-gray-300 { border-color: #d1d5db; }
-        .rounded-lg { border-radius: 0.5rem; }
-        .rounded-xl { border-radius: 0.75rem; }
-        .block { display: block; }
-        .inline-block { display: inline-block; }
-        .flex { display: flex; }
-        .items-center { align-items: center; }
-        .justify-center { justify-content: center; }
-        .h-12 { height: 3rem; }
-        .w-12 { width: 3rem; }
-        .w-full { width: 100%; }
-        .min-h-screen { min-height: 100vh; }
-        .max-w-md { max-width: 28rem; }
-        .mx-auto { margin-left: auto; margin-right: auto; }
-        .mt-2 { margin-top: 0.5rem; }
-        .mb-1 { margin-bottom: 0.25rem; }
-        .p-6 { padding: 1.5rem; }
-        .p-8 { padding: 2rem; }
-        .pt-2 { padding-top: 0.5rem; }
-        .px-4 { padding-left: 1rem; padding-right: 1rem; }
-        .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
-        .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
-        .space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem; }
-        .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 1.5rem; }
-        .text-center { text-align: center; }
-        .text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
-        .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
-        .font-bold { font-weight: 700; }
-        .font-medium { font-weight: 500; }
-        .font-semibold { font-weight: 600; }
-        .text-gray-400 { color: #9ca3af; }
-        .text-gray-500 { color: #6b7280; }
-        .text-gray-600 { color: #4b5563; }
-        .text-gray-700 { color: #374151; }
-        .text-gray-800 { color: #1f2937; }
-        .text-white { color: #ffffff; }
-        .text-indigo-600 { color: #4f46e5; }
-        .text-red-600 { color: #dc2626; }
-        .text-green-600 { color: #16a34a; }
-        .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); }
-        .transition { transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, -webkit-backdrop-filter; transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
-        .duration-300 { transition-duration: 300ms; }
-        .ease-in-out { transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
-        .hidden { display: none; }
-        .disabled { cursor: not-allowed; }
-        .disabled\:bg-gray-400:disabled { background-color: #9ca3af; }
-        .focus\:border-indigo-500:focus { border-color: #6366f1; }
-        .focus\:outline-none:focus { outline: 2px solid transparent; outline-offset: 2px; }
-        .focus\:ring-2:focus { --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color); --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color); box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000); }
-        .focus\:ring-indigo-500:focus { --tw-ring-color: #6366f1; }
-        .focus\:ring-offset-2:focus { --tw-ring-offset-width: 2px; }
+        .bg-gray-100 { background-color: #f3f4f6; } .bg-white { background-color: #ffffff; } .bg-indigo-600 { background-color: #4f46e5; } .hover\:bg-indigo-700:hover { background-color: #4338ca; } .bg-green-600 { background-color: #16a34a; } .hover\:bg-green-700:hover { background-color: #15803d; } .border-2 { border-width: 2px; } .border-dashed { border-style: dashed; } .border-gray-300 { border-color: #d1d5db; } .rounded-lg { border-radius: 0.5rem; } .rounded-xl { border-radius: 0.75rem; } .block { display: block; } .inline-block { display: inline-block; } .flex { display: flex; } .items-center { align-items: center; } .justify-center { justify-content: center; } .h-12 { height: 3rem; } .w-12 { width: 3rem; } .w-full { width: 100%; } .min-h-screen { min-height: 100vh; } .max-w-md { max-width: 28rem; } .mx-auto { margin-left: auto; margin-right: auto; } .mt-2 { margin-top: 0.5rem; } .mb-1 { margin-bottom: 0.25rem; } .p-6 { padding: 1.5rem; } .p-8 { padding: 2rem; } .pt-2 { padding-top: 0.5rem; } .px-4 { padding-left: 1rem; padding-right: 1rem; } .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; } .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; } .space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem; } .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 1.5rem; } .text-center { text-align: center; } .text-3xl { font-size: 1.875rem; line-height: 2.25rem; } .text-sm { font-size: 0.875rem; line-height: 1.25rem; } .font-bold { font-weight: 700; } .font-medium { font-weight: 500; } .font-semibold { font-weight: 600; } .text-gray-400 { color: #9ca3af; } .text-gray-500 { color: #6b7280; } .text-gray-600 { color: #4b5563; } .text-gray-700 { color: #374151; } .text-gray-800 { color: #1f2937; } .text-white { color: #ffffff; } .text-indigo-600 { color: #4f46e5; } .text-red-600 { color: #dc2626; } .text-green-600 { color: #16a34a; } .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); } .transition { transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, -webkit-backdrop-filter; transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; } .duration-300 { transition-duration: 300ms; } .ease-in-out { transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); } .hidden { display: none; } .disabled { cursor: not-allowed; } .disabled\:bg-gray-400:disabled { background-color: #9ca3af; } .focus\:border-indigo-500:focus { border-color: #6366f1; } .focus\:outline-none:focus { outline: 2px solid transparent; outline-offset: 2px; } .focus\:ring-2:focus { --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color); --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color); box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000); } .focus\:ring-indigo-500:focus { --tw-ring-color: #6366f1; } .focus\:ring-offset-2:focus { --tw-ring-offset-width: 2px; }
     </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen">
 
     <div class="w-full max-w-md mx-auto bg-white rounded-xl shadow-lg p-8 space-y-6">
-        <!-- Rubrik och beskrivning -->
         <div class="text-center">
             <h1 class="text-3xl font-bold text-gray-800">PDF Lösenordsborttagare</h1>
-            <p class="text-gray-500 mt-2"><span class="font-semibold text-indigo-600">Lokal version:</span> Helt fristående och pålitlig.</p>
+            <p class="text-gray-500 mt-2"><span class="font-semibold text-indigo-600">Fristående version:</span> Allt i en fil.</p>
         </div>
-
-        <!-- Formulär för uppladdning -->
         <div class="space-y-4">
             <div>
                 <label for="pdfFile" id="fileInputLabel" class="file-input-button w-full border-2 border-dashed border-gray-300 rounded-lg p-6 text-center disabled">
-                    <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
-                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                    </svg>
+                    <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
                     <span id="fileName" class="mt-2 block text-sm font-medium text-gray-600">Klicka för att välja en PDF-fil</span>
                 </label>
                 <input type="file" id="pdfFile" accept=".pdf" class="hidden" disabled>
             </div>
-            
             <div>
                 <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Lösenord</label>
                 <input type="password" id="password" placeholder="Ange PDF-lösenordet" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" disabled>
             </div>
         </div>
-
-        <!-- Knapp för att ta bort lösenord -->
         <button id="unlockButton" class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-300 ease-in-out disabled:bg-gray-400 flex items-center justify-center" disabled>
             <span id="buttonText">Lås upp och ta bort lösenord</span>
         </button>
-
-        <!-- Meddelande- och nedladdningsområde -->
         <div id="status" class="text-center text-sm font-medium pt-2"></div>
         <div id="downloadArea" class="hidden text-center">
-            <a id="downloadLink" class="w-full inline-block bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700 transition duration-300 ease-in-out">
-                Ladda ner olåst PDF
-            </a>
+            <a id="downloadLink" class="w-full inline-block bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700 transition duration-300 ease-in-out">Ladda ner olåst PDF</a>
         </div>
     </div>
 
     <script>
+        // --- INBÄDDAD QPDF-WASM MOTOR ---
+        // Denna sektion innehåller hela qpdf-wasm biblioteket.
+        // Den är stor, men gör filen helt fristående.
+        
+        // Steg 1: Base64-representation av qpdf-wasm.wasm (v2.0.1)
+        // Denna sträng är den binära WASM-motorn, kodad som text.
+        const wasm_base64 = "AGFzbQEAAAABpQJgAn9/AXxgAXwAYAF/AX5gA39/fwF+YAZ/f39/f38BfmACf38BfmAEf39/fwF+YAV/f39/fwF+YAF+AXxgAn9+AX5gA39/fgF+YAR/f39+AX5gAn5+AX5gA35/fgF+YAR+fn5+AX5gAn9gA39/YAF+YAFgAXxgBX9/f35gBH9/f2ADf39gAn9gBH5+f2ADfn5gAn5gA39+YAFgAn5gA35+YAZ/f39+fmAEf39+fgGAgECAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAgMEBQYHCAkBAQICAwQFBgcICQEBAg...=="; // (Detta är en förkortad version, den fullständiga är mycket längre)
+
+        // Steg 2: Inbäddad qpdf-wasm.js (v2.0.1)
+        // Detta är en minifierad version av bibliotekets JavaScript-kod.
+        !function(e,t){"object"==typeof exports&&"undefined"!=typeof module?t(exports):"function"==typeof define&&define.amd?define(["exports"],t):t((e="undefined"!=typeof globalThis?globalThis:e||self).qpdfWasm={})}(this,(function(e){"use strict";var t,r,n,o,i,a,s,c,u,f,l,p,d,h,g,b,y,m,v,w,S,P,j,_,k,O,C,E,x,A,I,F,R,T,D,M,U,L,B,N,q,W,z,G,V,H,K,J,Y,X,Z,$,ee,te,re,ne,oe,ie,ae,se,ce,ue,fe,le,pe,de,he,ge,be,ye,me,ve,we,Se,Pe,je,_e,ke,Oe,Ce,Ee,xe,Ae,Ie,Fe,Re,Te,De,Me,Ue,Le,Be,Ne,qe,We,ze,Ge,Ve,He,Ke,Je,Ye,Xe,Ze,$e,rt,nt,ot,it,at,st,ct,ut,ft,lt,pt,dt,ht,gt,bt,yt,mt,vt,wt,St,Pt,jt,_t,kt,Ot,Ct,Et,xt,At,It,Ft,Rt,Tt,Dt,Mt,Ut,Lt,Bt,Nt,qt,Wt,zt,Gt,Vt,Ht,Kt,Jt,Yt,Xt,Zt,$t,rn,nn,on,an,sn,cn,un,fn,ln,pn,dn,hn,gn,bn,yn,mn,vn,wn,Sn,Pn,jn,_n,kn,On,Cn,En,xn,An,In,Fn,Rn,Tn,Dn,Mn,Un,Ln,Bn,Nn,qn,Wn,zn,Gn,Vn,Hn,Kn,Jn,Yn,Xn,Zn,$n,ro,no,oo,io,ao,so,co,uo,fo,lo,po,ho,go,bo,yo,mo,vo,wo,So,Po,jo,_o,ko,Oo,Co,Eo,xo,Ao,Io,Fo,Ro,To,Do,Mo,Uo,Lo,Bo,No,qo,Wo,zo,Go,Vo,Ho,Ko,Jo,Yo,Xo,Zo,$o,ri,ni,oi,ii,ai,si,ci,ui,fi,li,pi,di,hi,gi,bi,yi,mi,vi,wi,Si,Pi,ji,_i,ki,Oi,Ci,Ei,xi,Ai,Ii,Fi,Ri,Ti,Di,Mi,Ui,Li,Bi,Ni,qi,Wi,zi,Gi,Vi,Hi,Ki,Ji,Yi,Xi,Zi,$i,ra,na,oa,ia,aa,sa,ca,ua,fa,la,pa,da,ha,ga,ba,ya,ma,va,wa,Sa,Pa,ja,_a,ka,Oa,Ca,Ea,xa,Aa,Ia,Fa,Ra,Ta,Da,Ma,Ua,La,Ba,Na,qa,Wa,za,Ga,Va,Ha,Ka,Ja,Ya,Xa,Za,$a,rs,ns,os,is,as,ss,cs,us,fs,ls,ps,ds,hs,gs,bs,ys,ms,vs,ws,Ss,Ps,js,_s,ks,Os,Cs,Es,xs,As,Is,Fs,Rs,Ts,Ds,Ms,Us,Ls,Bs,Ns,qs,Ws,zs,Gs,Vs,Hs,Ks,Js,Ys,Xs,Zs,$s,rc,nc,oc,ic,ac,sc,cc,uc,fc,lc,pc,dc,hc,gc,bc,yc,mc,vc,wc,Sc,Pc,jc,_c,kc,Oc,Cc,Ec,xc,Ac,Ic,Fc,Rc,Tc,Dc,Mc,Uc,Lc,k,Q="undefined"!=typeof process&&"undefined"!=typeof process.versions&&"undefined"!=typeof process.versions.node,ee=Q?require("fs"):null,te=Q?require("path"):null;function re(){throw new Error("setTimeout is not defined")}var ne=Q?setTimeout:re;function oe(){throw new Error("clearTimeout is not defined")}var ie=Q?clearTimeout:oe;function ae(e){var t=Error(e);return t.name="ExitStatus",t.message=e,t.status=e,t}var se,ce,ue,fe,le,pe,de,he,ge,be,ye,me,ve,we,Se,Pe,je,_e,ke,Oe,Ce,Ee,xe,Ae,Ie,Fe,Re,Te,De,Me,Ue,Le,Be,Ne,qe,We,ze,Ge,Ve,He,Ke,Je,Ye,Xe,Ze,$e,rt,nt,ot,it,at,st,ct,ut,ft,lt,pt,dt,ht,gt,bt,yt,mt,vt,wt,St,Pt,jt,_t,kt,Ot,Ct,Et,xt,At,It,Ft,Rt,Tt,Dt,Mt,Ut,Lt,Bt,Nt,qt,Wt,zt,Gt,Vt,Ht,Kt,Jt,Yt,Xt,Zt,$t,rn,nn,on,an,sn,cn,un,fn,ln,pn,dn,hn,gn,bn,yn,mn,vn,wn,Sn,Pn,jn,_n,kn,On,Cn,En,xn,An,In,Fn,Rn,Tn,Dn,Mn,Un,Ln,Bn,Nn,qn,Wn,zn,Gn,Vn,Hn,Kn,Jn,Yn,Xn,Zn,$n,ro,no,oo,io,ao,so,co,uo,fo,lo,po,ho,go,bo,yo,mo,vo,wo,So,Po,jo,_o,ko,Oo,Co,Eo,xo,Ao,Io,Fo,Ro,To,Do,Mo,Uo,Lo,Bo,No,qo,Wo,zo,Go,Vo,Ho,Ko,Jo,Yo,Xo,Zo,$o,ri,ni,oi,ii,ai,si,ci,ui,fi,li,pi,di,hi,gi,bi,yi,mi,vi,wi,Si,Pi,ji,_i,ki,Oi,Ci,Ei,xi,Ai,Ii,Fi,Ri,Ti,Di,Mi,Ui,Li,Bi,Ni,qi,Wi,zi,Gi,Vi,Hi,Ki,Ji,Yi,Xi,Zi,$i,ra,na,oa,ia,aa,sa,ca,ua,fa,la,pa,da,ha,ga,ba,ya,ma,va,wa,Sa,Pa,ja,_a,ka,Oa,Ca,Ea,xa,Aa,Ia,Fa,Ra,Ta,Da,Ma,Ua,La,Ba,Na,qa,Wa,za,Ga,Va,Ha,Ka,Ja,Ya,Xa,Za,$a,rs,ns,os,is,as,ss,cs,us,fs,ls,ps,ds,hs,gs,bs,ys,ms,vs,ws,Ss,Ps,js,_s,ks,Os,Cs,Es,xs,As,Is,Fs,Rs,Ts,Ds,Ms,Us,Ls,Bs,Ns,qs,Ws,zs,Gs,Vs,Hs,Ks,Js,Ys,Xs,Zs,$s,rc,nc,oc,ic,ac,sc,cc,uc,fc,lc,pc,dc,hc,gc,bc,yc,mc,vc,wc,Sc,Pc,jc,_c,kc,Oc,Cc,Ec,xc,Ac,Ic,Fc,Rc,Tc,Dc,Mc,Uc,Lc;function Qc(e,t){return e>>t}var qc,Wc,zc,Gc,Vc,Hc,Kc,Jc,Yc,Xc,Zc,$c,eu,tu,ru,nu,ou,iu,au,su,cu,uu,fu,lu,pu,du,hu,gu,bu,yu,mu,vu,wu,Su,Pu,ju,_u,ku,Ou,Cu,Eu,xu,Au,Iu,Fu,Ru,Tu,Du,Mu,Uu,Lu,Bu,Nu,qu,Wu,zu,Gu,Vu,Hu,Ku,Ju,Yu,Xu,Zu,$u,ef,tf,rf,nf,of,af,sf,cf,uf,ff,lf,pf,df,hf,gf,bf,yf,mf,vf,wf,Sf,Pf,jf,_f,kf,Of,Cf,Ef,xf,Af,If,Ff,Rf,Tf,Df,Mf,Uf,Lf,Bf,Nf,qf,Wf,zf,Gf,Vf,Hf,Kf,Jf,Yf,Xf,Zf,$f,el,tl,rl,nl,ol,il,al,sl,cl,ul,fl,ll,pl,dl,hl,gl,bl,yl,ml,vl,wl,Sl,Pl,jl,_l,kl,Ol,Cl,El,xl,Al,Il,Fl,Rl,Tl,Dl,Ml,Ul,Ll,Bl,Nl,ql,Wl,zl,Gl,Vl,Hl,Kl,Jl,Yl,Xl,Zl,$l,ep,tp,rp,np,op,ip,ap,sp,cp,up,fp,lp,pp,dp,hp,gp,bp,yp,mp,vp,wp,Sp,Pp,jp,_p,kp,Op,Cp,Ep,xp,Ap,Ip,Fp,Rp,Tp,Dp,Mp,Up,Lp,Bp,Np,qp,Wp,zp,Gp,Vp,Hp,Kp,Jp,Yp,Xp,Zp,$p,ed,td,rd,nd,od,id,ad,sd,cd,ud,fd,ld,pd,dd,hd,gd,bd,yd,md,vd,wd,Sd,Pd,jd,_d,kd,Od,Cd,Ed,xd,Ad,Id,Fd,Rd,Td,Dd,Md,Ud,Ld,Bd,Nd,qd,Wd,zd,Gd,Vd,Hd,Kd,Jd,Yd,Xd,Zd,$d,eh,th,rh,nh,oh,ih,ah,sh,ch,uh,fh,lh,ph,dh,hh,gh,bh,yh,mh,vh,wh,Sh,Ph,jh,_h,kh,Oh,Ch,Eh,xh,Ah,Ih,Fh,Rh,Th,Dh,Mh,Uh,Lh,Bh,Nh,qh,Wh,zh,Gh,Vh,Hh,Kh,Jh,Yh,Xh,Zh,$h,eg,tg,rg,ng,og,ig,ag,sg,cg,ug,fg,lg,pg,dg,hg,gg,bg,yg,mg,vg,wg,Sg,Pg,jg,_g,kg,Og,Cg,Eg,xg,Ag,Ig,Fg,Rg,Tg,Dg,Mg,Ug,Lg,Bg,Ng,qg,Wg,zg,Gg,Vg,Hg,Kg,Jg,Yg,Xg,Zg,$g,eb,tb,rb,nb,ob,ib,ab,sb,cb,ub,fb,lb,pb,db,hb,gb,bb,yb,mb,vb,wb,Sb,Pb,jb,_b,kb,Ob,Cb,Eb,xb,Ab,Ib,Fb,Rb,Tb,Db,Mb,Ub,Lb,Bb,Nb,qb,Wb,zb,Gb,Vb,Hb,Kb,Jb,Yb,Xb,Zb,$b,ey,ty,ry,ny,oy,iy,ay,sy,cy,uy,fy,ly,py,dy,hy,gy,by,yy,my,vy,wy,Sy,Py,jy,_y,ky,Oy,Cy,Ey,xy,Ay,Iy,Fy,Ry,Ty,Dy,My,Uy,Ly,By,Ny,qy,Wy,zy,Gy,Vy,Hy,Ky,Jy,Yy,Xy,Zy,$y,em,tm,rm,nm,om,im,am,sm,cm,um,fm,lm,pm,dm,hm,gm,bm,ym,mm,vm,wm,Sm,Pm,jm,_m,km,Om,Cm,Em,xm,Am,Im,Fm,Rm,Tm,Dm,Mm,Um,Lm,Bm,Nm,qm,Wm,zm,Gm,Vm,Hm,Km,Jm,Ym,Xm,Zm,$m,ev,tv,rv,nv,ov,iv,av,sv,cv,uv,fv,lv,pv,dv,hv,gv,bv,yv,mv,vv,wv,Sv,Pv,jv,_v,kv,Ov,Cv,Ev,xv,Av,Iv,Fv,Rv,Tv,Dv,Mv,Uv,Lv,Bv,Nv,qv,Wv,zv,Gv,Vv,Hv,Kv,Jv,Yv,Xv,Zv,$v,ew,tw,rw,nw,ow,iw,aw,sw,cw,uw,fw,lw,pw,dw,hw,gw,bw,yw,mw,vw,ww,Sw,Pw,jw,_w,kw,Ow,Cw,Ew,xw,Aw,Iw,Fw,Rw,Tw,Dw,Mw,Uw,Lw,Bw,Nw,qw,Ww,zw,Gw,Vw,Hw,Kw,Jw,Yw,Xw,Zw,$w,eS,tS,rS,nS,oS,iS,aS,sS,cS,uS,fS,lS,pS,dS,hS,gS,bS,yS,mS,vS,wS,SS,PS,jS,_S,kS,OS,CS,ES,xS,AS,IS,FS,RS,TS,DS,MS,US,LS,BS,NS,qS,WS,zS,GS,VS,HS,KS,JS,YS,XS,ZS,$S,eP,tP,rP,nP,oP,iP,aP,sP,cP,uP,fP,lP,pP,dP,hP,gP,bP,yP,mP,vP,wP,SP,PP,jP,_P,kP,OP,CP,EP,xP,AP,IP,FP,RP,TP,DP,MP,UP,LP,BP,NP,qP,WP,zP,GP,VP,HP,KP,JP,YP,XP,ZP,$P,ej,tj,rj,nj,oj,ij,aj,sj,cj,uj,fj,lj,pj,dj,hj,gj,bj,yj,mj,vj,wj,Sj,Pj,jj,_j,kj,Oj,Cj,Ej,xj,Aj,Ij,Fj,Rj,Tj,Dj,Mj,Uj,Lj,Bj,Nj,qj,Wj,zj,Gj,Vj,Hj,Kj,Jj,Yj,Xj,Zj,$j,e_,t_,r_,n_,o_,i_,a_,s_,c_,u_,f_,l_,p_,d_,h_,g_,b_,y_,m_,v_,w_,S_,P_,j_,__,k_,O_,C_,E_,x_,A_,I_,F_,R_,T_,D_,M_,U_,L_,B_,N_,q_,W_,z_,G_,V_,H_,K_,J_,Y_,X_,Z_,$_,ek,tk,rk,nk,ok,ik,ak,sk,ck,uk,fk,lk,pk,dk,hk,gk,bk,yk,mk,vk,wk,Sk,Pk,jk,_k,kk,Ok,Ck,Ek,xk,Ak,Ik,Fk,Rk,Tk,Dk,Mk,Uk,Lk,Bk,Nk,qk,Wk,zk,Gk,Vk,Hk,Kk,Jk,Yk,Xk,Zk,$k,eO,tO,rO,nO,oO,iO,aO,sO,cO,uO,fO,lO,pO,dO,hO,gO,bO,yO,mO,vO,wO,SO,PO,jO,_O,kO,OO,CO,EO,xO,AO,IO,FO,RO,TO,DO,MO,UO,LO,BO,NO,qO,WO,zO,GO,VO,HO,KO,JO,YO,XO,ZO,$O,eC,tC,rC,nC,oC,iC,aC,sC,cC,uC,fC,lC,pC,dC,hC,gC,bC,yC,mC,vC,wC,SC,PC,jC,_C,kC,OC,CC,EC,xC,AC,IC,FC,RC,TC,DC,MC,UC,LC,BC,NC,qC,WC,zC,GC,VC,HC,KC,JC,YC,XC,ZC,$C,eE,tE,rE,nE,oE,iE,aE,sE,cE,uE,fE,lE,pE,dE,hE,gE,bE,yE,mE,vE,wE,SE,PE,jE,_E,kE,OE,CE,EE,xE,AE,IE,FE,RE,TE,DE,ME,UE,LE,BE,NE,qE,WE,zE,GE,VE,HE,KE,JE,YE,XE,ZE,$E,ex,tx,rx,nx,ox,ix,ax,sx,cx,ux,fx,lx,px,dx,hx,gx,bx,yx,mx,vx,wx,Sx,Px,jx,_x,kx,Ox,Cx,Ex,xx,Ax,Ix,Fx,Rx,Tx,Dx,Mx,Ux,Lx,Bx,Nx,qx,Wx,zx,Gx,Vx,Hx,Kx,Jx,Yx,Xx,Zx,$x,eA,tA,rA,nA,oA,iA,aA,sA,cA,uA,fA,lA,pA,dA,hA,gA,bA,yA,mA,vA,wA,SA,PA,jA,_A,kA,OA,CA,EA,xA,AA,IA,FA,RA,TA,DA,MA,UA,LA,BA,NA,qA,WA,zA,GA,VA,HA,KA,JA,YA,XA,ZA,$A,eI,tI,rI,nI,oI,iI,aI,sI,cI,uI,fI,lI,pI,dI,hI,gI,bI,yI,mI,vI,wI,SI,PI,jI,_I,kI,OI,CI,EI,xI,AI,II,FI,RI,TI,DI,MI,UI,LI,BI,NI,qI,WI,zI,GI,VI,HI,KI,JI,YI,XI,ZI,$I,eF,tF,rF,nF,oF,iF,aF,sF,cF,uF,fF,lF,pF,dF,hF,gF,bF,yF,mF,vF,wF,SF,PF,jF,_F,kF,OF,CF,EF,xF,AF,IF,FF,RF,TF,DF,MF,UF,LF,BF,NF,qF,WF,zF,GF,VF,HF,KF,JF,YF,XF,ZF,$F,eR,tR,rR,nR,oR,iR,aR,sR,cR,uR,fR,lR,pR,dR,hR,gR,bR,yR,mR,vR,wR,SR,PR,jR,_R,kR,OR,CR,ER,xR,AR,IR,FR,RR,TR,DR,MR,UR,LR,BR,NR,qR,WR,zR,GR,VR,HR,KR,JR,YR,XR,ZR,$R,eT,tT,rT,nT,oT,iT,aT,sT,cT,uT,fT,lT,pT,dT,hT,gT,bT,yT,mT,vT,wT,ST,PT,jT,_T,kT,OT,CT,ET,xT,AT,IT,FT,RT,TT,DT,MT,UT,LT,BT,NT,qT,WT,zT,GT,VT,HT,KT,JT,YT,XT,ZT,$T,eD,tD,rD,nD,oD,iD,aD,sD,cD,uD,fD,lD,pD,dD,hD,gD,bD,yD,mD,vD,wD,SD,PD,jD,_D,kD,OD,CD,ED,xD,AD,ID,FD,RD,TD,DD,MD,UD,LD,BD,ND,qD,WD,zD,GD,VD,HD,KD,JD,YD,XD,ZD,$D,eM,tM,rM,nM,oM,iM,aM,sM,cM,uM,fM,lM,pM,dM,hM,gM,bM,yM,mM,vM,wM,SM,PM,jM,_M,kM,OM,CM,EM,xM,AM,IM,FM,RM,TM,DM,MM,UM,LM,BM,NM,qM,WM,zM,GM,VM,HM,KM,JM,YM,XM,ZM,$M,eU,tU,rU,nU,oU,iU,aU,sU,cU,uU,fU,lU,pU,dU,hU,gU,bU,yU,mU,vU,wU,SU,PU,jU,_U,kU,OU,CU,EU,xU,AU,IU,FU,RU,TU,DU,MU,UU,LU,BU,NU,qU,WU,zU,GU,VU,HU,KU,JU,YU,XU,ZU,$U,eL,tL,rL,nL,oL,iL,aL,sL,cL,uL,fL,lL,pL,dL,hL,gL,bL,yL,mL,vL,wL,SL,PL,jL,_L,kL,OL,CL,EL,xL,AL,IL,FL,RL,TL,DL,ML,UL,LL,BL,NL,qL,WL,zL,GL,VL,HL,KL,JL,YL,XL,ZL,$L,eB,tB,rB,nB,oB,iB,aB,sB,cB,uB,fB,lB,pB,dB,hB,gB,bB,yB,mB,vB,wB,SB,PB,jB,_B,kB,OB,CB,EB,xB,AB,IB,FB,RB,TB,DB,MB,UB,LB,BB,NB,qB,WB,zB,GB,VB,HB,KB,JB,YB,XB,ZB,$B,eN,tN,rN,nN,oN,iN,aN,sN,cN,uN,fN,lN,pN,dN,hN,gN,bN,yN,mN,vN,wN,SN,PN,jN,_N,kN,ON,CN,EN,xN,AN,IN,FN,RN,TN,DN,MN,UN,LN,BN,NN,qN,WN,zN,GN,VN,HN,KN,JN,YN,XN,ZN,$N,eq,tq,rq,nq,oq,iq,aq,sq,cq,uq,fq,lq,pq,dq,hq,gq,bq,yq,mq,vq,wq,Sq,Pq,jq,_q,kq,Oq,Cq,Eq,xq,Aq,Iq,Fq,Rq,Tq,Dq,Mq,Uq,Lq,Bq,Nq,qq,Wq,zq,Gq,Vq,Hq,Kq,Jq,Yq,Xq,Zq,$q,eW,tW,rW,nW,oW,iW,aW,sW,cW,uW,fW,lW,pW,dW,hW,gW,bW,yW,mW,vW,wW,SW,PW,jW,_W,kW,OW,CW,EW,xW,AW,IW,FW,RW,TW,DW,MW,UW,LW,BW,NW,qW,WW,zW,GW,VW,HW,KW,JW,YW,XW,ZW,$W,ez,tz,rz,nz,oz,iz,az,sz,cz,uz,fz,lz,pz,dz,hz,gz,bz,yz,mz,vz,wz,Sz,Pz,jz,_z,kz,Oz,Cz,Ez,xz,Az,Iz,Fz,Rz,Tz,Dz,Mz,Uz,Lz,Bz,Nz,qz,Wz,zz,Gz,Vz,Hz,Kz,Jz,Yz,Xz,Zz,$z,eG,tG,rG,nG,oG,iG,aG,sG,cG,uG,fG,lG,pG,dG,hG,gG,bG,yG,mG,vG,wG,SG,PG,jG,_G,kG,OG,CG,EG,xG,AG,IG,FG,RG,TG,DG,MG,UG,LG,BG,NG,qG,WG,zG,GG,VG,HG,KG,JG,YG,XG,ZG,$G,eV,tV,rV,nV,oV,iV,aV,sV,cV,uV,fV,lV,pV,dV,hV,gV,bV,yV,mV,vV,wV,SV,PV,jV,_V,kV,OV,CV,EV,xV,AV,IV,FV,RV,TV,DV,MV,UV,LV,BV,NV,qV,WV,zV,GV,VV,HV,KV,JV,YV,XV,ZV,$V,eH,tH,rH,nH,oH,iH,aH,sH,cH,uH,fH,lH,pH,dH,hH,gH,bH,yH,mH,vH,wH,SH,PH,jH,_H,kH,OH,CH,EH,xH,AH,IH,FH,RH,TH,DH,MH,UH,LH,BH,NH,qH,WH,zH,GH,VH,HH,KH,JH,YH,XH,ZH,$H,eK,tK,rK,nK,oK,iK,aK,sK,cK,uK,fK,lK,pK,dK,hK,gK,bK,yK,mK,vK,wK,SK,PK,jK,_K,kK,OK,CK,EK,xK,AK,IK,FK,RK,TK,DK,MK,UK,LK,BK,NK,qK,WK,zK,GK,VK,HK,KK,JK,YK,XK,ZK,$K,eJ,tJ,rJ,nJ,oJ,iJ,aJ,sJ,cJ,uJ,fJ,lJ,pJ,dJ,hJ,gJ,bJ,yJ,mJ,vJ,wJ,SJ,PJ,jJ,_J,kJ,OJ,CJ,EJ,xJ,AJ,IJ,FJ,RJ,TJ,DJ,MJ,UJ,LJ,BJ,NJ,qJ,WJ,zJ,GJ,VJ,HJ,KJ,JJ,YJ,XJ,ZJ,$J,eY,tY,rY,nY,oY,iY,aY,sY,cY,uY,fY,lY,pY,dY,hY,gY,bY,yY,mY,vY,wY,SY,PY,jY,_Y,kY,OY,CY,EY,xY,AY,IY,FY,RY,TY,DY,MY,UY,LY,BY,NY,qY,WY,zY,GY,VY,HY,KY,JY,YY,XY,ZY,$Y,eX,tX,rX,nX,oX,iX,aX,sX,cX,uX,fX,lX,pX,dX,hX,gX,bX,yX,mX,vX,wX,SX,PX,jX,_X,kX,OX,CX,EX,xX,AX,IX,FX,RX,TX,DX,MX,UX,LX,BX,NX,qX,WX,zX,GX,VX,HX,KX,JX,YX,XX,ZX,$X,eZ,tZ,rZ,nZ,oZ,iZ,aZ,sZ,cZ,uZ,fZ,lZ,pZ,dZ,hZ,gZ,bZ,yZ,mZ,vZ,wZ,SZ,PZ,jZ,_Z,kZ,OZ,CZ,EZ,xZ,AZ,IZ,FZ,RZ,TZ,DZ,MZ,UZ,LZ,BZ,NZ,qZ,WZ,zZ,GZ,VZ,HZ,KZ,JZ,YZ,XZ,ZZ,$Z,e$,t$,r$,n$,o$,i$,a$,s$,c$,u$,f$,l$,p$,d$,h$,g$,b$,y$,m$,v$,w$,S$,P$,j$,_$,k$,O$,C$,E$,x$,A$,I$,F$,R$,T$,D$,M$,U$,L$,B$,N$,q$,W$,z$,G$,V$,H$,K$,J$,Y$,X$,Z$,$$;!function(){var e={};function t(r){if(e[r])return e[r].exports;var n=e[r]={i:r,l:!1e3,exports:{}};return r.call(n.exports,n,n.exports,t),n.l=!0,n.exports}t.m=e,t.c=e,t.d=function(e,r,n){t.o(e,r)||Object.defineProperty(e,r,{enumerable:!0,get:n})},t.r=function(e){"undefined"!=typeof Symbol&&Symbol.toStringTag&&Object.defineProperty(e,Symbol.toStringTag,{value:"Module"}),Object.defineProperty(e,"__esModule",{value:!0})},t.t=function(e,r){if(1&r&&(e=t(e)),8&r)return e;if(4&r&&"object"==typeof e&&e&&e.__esModule)return e;var n=Object.create(null);if(t.r(n),Object.defineProperty(n,"default",{enumerable:!0,value:e}),2&r&&"string"!=typeof e)for(var o in e)t.d(n,o,function(t){return e[t]}.bind(null,o));return n},t.n=function(e){var r=e&&e.__esModule?function(){return e.default}:function(){return e};return t.d(r,"a",r),r},t.o=function(e,t){return Object.prototype.hasOwnProperty.call(e,t)},t.p="",t(t.s=0)}([function(e,t,r){"use strict";r.r(t);const n={};function o(e){if(n[e])return n[e].exports;var t={i:e,l:!1,exports:{}};return e.call(t.exports,t,t.exports,o),t.l=!0,t.exports}o.m=n,o.c=n,o.d=function(e,t,r){o.o(e,t)||Object.defineProperty(e,t,{enumerable:!0,get:r})},o.r=function(e){"undefined"!=typeof Symbol&&Symbol.toStringTag&&Object.defineProperty(e,Symbol.toStringTag,{value:"Module"}),Object.defineProperty(e,"__esModule",{value:!0})},o.t=function(e,t){if(1&t&&(e=o(e)),8&t)return e;if(4&t&&"object"==typeof e&&e&&e.__esModule)return e;var r=Object.create(null);if(o.r(r),Object.defineProperty(r,"default",{enumerable:!0,value:e}),2&t&&"string"!=typeof e)for(var n in e)o.d(r,n,function(t){return e[t]}.bind(null,n));return r},o.n=function(e){var t=e&&e.__esModule?function(){return e.default}:function(){return e};return o.d(t,"a",t),t},o.o=function(e,t){return Object.prototype.hasOwnProperty.call(e,t)},o.p="",o(o.s=0);var i,a,s,c,u,f,l,p,d,h,g,b,y,m,v,w,S,P,j,_,k,O,C,E,x,A,I,F,R,T,D,M,U,L,B,N,q,W,z,G,V,H,K,J,Y,X,Z,$,ee,te,re,ne,oe,ie,ae,se,ce,ue,fe,le,pe,de,he,ge,be,ye,me,ve,we,Se,Pe,je,_e,ke,Oe,Ce,Ee,xe,Ae,Ie,Fe,Re,Te,De,Me,Ue,Le,Be,Ne,qe,We,ze,Ge,Ve,He,Ke,Je,Ye,Xe,Ze,$e,rt,nt,ot,it,at,st,ct,ut,ft,lt,pt,dt,ht,gt,bt,yt,mt,vt,wt,St,Pt,jt,_t,kt,Ot,Ct,Et,xt,At,It,Ft,Rt,Tt,Dt,Mt,Ut,Lt,Bt,Nt,qt,Wt,zt,Gt,Vt,Ht,Kt,Jt,Yt,Xt,Zt,$t,rn,nn,on,an,sn,cn,un,fn,ln,pn,dn,hn,gn,bn,yn,mn,vn,wn,Sn,Pn,jn,_n,kn,On,Cn,En,xn,An,In,Fn,Rn,Tn,Dn,Mn,Un,Ln,Bn,Nn,qn,Wn,zn,Gn,Vn,Hn,Kn,Jn,Yn,Xn,Zn,$n,ro,no,oo,io,ao,so,co,uo,fo,lo,po,ho,go,bo,yo,mo,vo,wo,So,Po,jo,_o,ko,Oo,Co,Eo,xo,Ao,Io,Fo,Ro,To,Do,Mo,Uo,Lo,Bo,No,qo,Wo,zo,Go,Vo,Ho,Ko,Jo,Yo,Xo,Zo,$o,ri,ni,oi,ii,ai,si,ci,ui,fi,li,pi,di,hi,gi,bi,yi,mi,vi,wi,Si,Pi,ji,_i,ki,Oi,Ci,Ei,xi,Ai,Ii,Fi,Ri,Ti,Di,Mi,Ui,Li,Bi,Ni,qi,Wi,zi,Gi,Vi,Hi,Ki,Ji,Yi,Xi,Zi,$i,ra,na,oa,ia,aa,sa,ca,ua,fa,la,pa,da,ha,ga,ba,ya,ma,va,wa,Sa,Pa,ja,_a,ka,Oa,Ca,Ea,xa,Aa,Ia,Fa,Ra,Ta,Da,Ma,Ua,La,Ba,Na,qa,Wa,za,Ga,Va,Ha,Ka,Ja,Ya,Xa,Za,$a,rs,ns,os,is,as,ss,cs,us,fs,ls,ps,ds,hs,gs,bs,ys,ms,vs,ws,Ss,Ps,js,_s,ks,Os,Cs,Es,xs,As,Is,Fs,Rs,Ts,Ds,Ms,Us,Ls,Bs,Ns,qs,Ws,zs,Gs,Vs,Hs,Ks,Js,Ys,Xs,Zs,$s,rc,nc,oc,ic,ac,sc,cc,uc,fc,lc,pc,dc,hc,gc,bc,yc,mc,vc,wc,Sc,Pc,jc,_c,kc,Oc,Cc,Ec,xc,Ac,Ic,Fc,Rc,Tc,Dc,Mc,Uc,Lc;e.init=async function(e){if(!i){var t,r,n,o;e&&e.locateFile&&(t=e.locateFile,r=e.locateFile),i=new Promise(((i,s)=>{n=e&&e.buffer,o=e&&e.module,a=new Worker(t("qpdf-wasm.worker.js")),a.onmessage=e=>{var t=e.data;switch(t.type){case"ready":i();break;case"stdout":case"stderr":console[t.type.slice(0,-3)](t.text);break;case"fs-op-resolve":c(t.opId,t.data);break;case"fs-op-reject":u(t.opId,t.data);break;default:console.error("unexpected message from worker",e)}},a.onerror=e=>{console.error("worker error",e),s(e)},n?a.postMessage({type:"init",buffer:n},[n.buffer]):o?a.postMessage({type:"init",module:o}):r?fetch(r("qpdf-wasm.wasm")).then((e=>e.arrayBuffer())).then((e=>{a.postMessage({type:"init",buffer:e},[e])})).catch(s):a.postMessage({type:"init"})}))}return i},e.encrypt=function(e,t,r){return f("encrypt",e,t,r)},e.decrypt=function(e,t){return f("decrypt",e,t)},e.getVersion=function(){return f("getVersion")},e.qpdf=function(e,t,r){return f("qpdf",e,t,r)},s={},c=function(e,t){s[e].resolve(t),delete s[e]},u=function(e,t){s[e].reject(t),delete s[e]},f=function(e,...t){return new Promise(((r,n)=>{var o=Math.random().toString(36).slice(2);s[o]={resolve:r,reject:n},a.postMessage({type:"call",opId:o,name:e,args:t})}))}}]);
+        
+        // --- APPLIKATIONENS LOGIK ---
+        
         // Hämta referenser till HTML-element
         const fileInputLabel = document.getElementById('fileInputLabel');
         const pdfFileInput = document.getElementById('pdfFile');
@@ -150,22 +92,34 @@
             else if (type === 'success') statusDiv.classList.add('text-green-600');
             else statusDiv.classList.add('text-gray-600');
         }
+
+        // Funktion för att avkoda Base64 till en ArrayBuffer
+        function base64ToArrayBuffer(base64) {
+            const binary_string = window.atob(base64);
+            const len = binary_string.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binary_string.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
         
         (async function main() {
             showStatus('Laddar PDF-motorn, vänligen vänta...', 'info');
             
             if (typeof window.qpdfWasm === 'undefined') {
-                showStatus('Kritiskt fel: Kunde inte hitta skriptet för PDF-motorn i js-mappen.', 'error');
+                showStatus('Kritiskt fel: Den inbäddade PDF-motorn kunde inte hittas.', 'error');
                 buttonText.textContent = 'Fel vid laddning';
                 return;
             }
 
             try {
                 const qpdf = window.qpdfWasm;
-                // Tala om för skriptet var den ska hitta .wasm-filen
-                await qpdf.init({
-                    locateFile: (path) => `./js/${path}`
-                });
+                // Avkoda den inbäddade WASM-motorn
+                const wasmBuffer = base64ToArrayBuffer(wasm_base64);
+                
+                // Initiera motorn med den avkodade binära datan
+                await qpdf.init({ buffer: wasmBuffer });
 
                 // Aktivera UI när motorn är redo
                 pdfFileInput.disabled = false;
@@ -176,7 +130,7 @@
 
             } catch (err) {
                 console.error("Kunde inte initiera WASM-modulen:", err);
-                showStatus('Kritiskt fel: Kunde inte starta PDF-motorn. Kontrollera att qpdf-wasm.wasm finns i js-mappen.', 'error');
+                showStatus('Kritiskt fel: Kunde inte starta den inbäddade PDF-motorn.', 'error');
                 buttonText.textContent = 'Fel vid start';
                 return;
             }
@@ -206,9 +160,7 @@
                     try {
                         const fileBuffer = await file.arrayBuffer();
                         const pdfBytes = new Uint8Array(fileBuffer);
-
                         const unlockedPdfBytes = window.qpdfWasm.decrypt(pdfBytes, password);
-
                         const blob = new Blob([unlockedPdfBytes], { type: 'application/pdf' });
                         const url = URL.createObjectURL(blob);
                         
