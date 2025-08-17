@@ -50,18 +50,18 @@
     @keyframes shimmer { 0% { background-position: 0 0; } 100% { background-position: -200% 0; } }
 
     /* IDP-väljare */
-    #idp-container { max-width: 600px; margin: 20px auto; padding: 0 16px; }
-    #idp-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
-    #idp-list li { display: flex; align-items: center; gap: 12px; background: var(--card); padding: 10px 14px; border-radius: 12px; cursor: pointer; transition: background .2s ease; }
-    #idp-list li:hover { background: var(--card-hover); }
-    #idp-list img { width: 32px; height: 32px; object-fit: contain; border-radius: 6px; background: #fff; }
+    /* removed */
+    /* removed */
+    /* removed */
+    /* removed */
+    /* removed */
       /* IDP-väljare */
     .idp-panel{max-width:800px;margin:24px auto 8px;padding:0 16px}
     .idp-list{list-style:none;margin:12px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
     .idp-item{display:flex;align-items:center;gap:10px;background:linear-gradient(180deg,var(--card),#0f141c);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:10px;cursor:pointer;box-shadow:var(--shadow);transition:transform .12s ease,background .2s ease}
     .idp-item:hover{transform:translateY(-1px);background:var(--card-hover)}
     .idp-item:focus{outline:2px solid var(--accent);outline-offset:2px}
-    .idp-thumb{width:36px;height:36px;border-radius:8px;object-fit:cover;background:#0b0f14}
+    .idp-thumb{width:36px;height:36px;border-radius:8px;object-fit:contain;background:#fff;display:block}
     .idp-name{font-weight:600}
   </style>
 </head>
@@ -70,12 +70,6 @@
     <h1>Splink-kort</h1>
     <button id="reload" class="btn" type="button">Ladda om</button>
   </header>
-
-  <div id="idp-container">
-    <h2>Välj en identitetsleverantör</h2>
-    <ul id="idp-list"></ul>
-  </div>
-
   <main>
     <section id="idp-panel" class="idp-panel" aria-labelledby="idp-heading">
       <h2 id="idp-heading" class="muted" style="margin:0">Välj identitetsutfärdare</h2>
@@ -158,6 +152,42 @@
         li.tabIndex = 0;
         li.role = 'button';
         li.setAttribute('aria-label', `Välj ${item.idpDisplayName || 'IDP'}`);
+
+        const img = document.createElement('img');
+        img.className = 'idp-thumb';
+        const src = (item.idpImg || '').trim();
+        if (src) img.src = src;
+        img.alt = item.idpDisplayName || '';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.referrerPolicy = 'no-referrer';
+        img.onerror = () => {
+          const fallback = document.createElement('div');
+          fallback.className = 'idp-thumb';
+          fallback.style.display = 'grid';
+          fallback.style.placeItems = 'center';
+          fallback.style.fontWeight = '700';
+          fallback.style.background = '#1f2937';
+          const initials = (item.idpDisplayName || '?').split(' ').slice(0,2).map(s=>s[0]).join('').toUpperCase();
+          fallback.textContent = initials;
+          img.replaceWith(fallback);
+        };
+
+        const name = document.createElement('div');
+        name.className = 'idp-name';
+        name.textContent = item.idpDisplayName || '(utan namn)';
+
+        li.appendChild(img);
+        li.appendChild(name);
+
+        const choose = () => selectIdp(item);
+        li.addEventListener('click', choose);
+        li.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); choose(); }});
+
+        frag.appendChild(li);
+      }
+      listEl.appendChild(frag);
+    }`);
 
         const img = document.createElement('img');
         img.className = 'idp-thumb';
