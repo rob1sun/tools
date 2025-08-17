@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>E2E-krypterad Fildelning via WebRTC v2</title>
+    <title>E2E-krypterad Fildelning via WebRTC v2.1</title>
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; color: #1c1e21; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
@@ -73,7 +73,6 @@
             </div>
             <button id="send-file-btn" class="btn-primary" style="width: 100%;" disabled>Skicka vald fil</button>
 
-
             <h2>3. Lokal Dekryptering</h2>
             <p>Dekryptera en fil du har sparat på din dator, utan att vara ansluten till någon.</p>
             <div id="local-decrypt-drop-zone" class="drop-zone">
@@ -88,52 +87,33 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // --- DOM-ELEMENT ---
+        // DOM-element
         const keyMgmtSection = document.getElementById('key-management-section'), mainAppSection = document.getElementById('main-app-section'), keyPasswordInput = document.getElementById('key-password'), generateKeysBtn = document.getElementById('generate-keys-btn'), showKeyMgmtBtn = document.getElementById('show-key-mgmt-btn'), myIdSpan = document.getElementById('my-id'), copyIdBtn = document.getElementById('copy-id-btn'), peerIdInput = document.getElementById('peer-id-input'), connectBtn = document.getElementById('connect-btn'), statusDiv = document.getElementById('status'), chatLog = document.getElementById('chat-log'), messageInput = document.getElementById('message-input'), sendBtn = document.getElementById('send-btn'), fileDropZone = document.getElementById('file-drop-zone'), fileInput = document.getElementById('file-input'), sendFileBtn = document.getElementById('send-file-btn'), localDecryptDropZone = document.getElementById('local-decrypt-drop-zone'), localDecryptFileInput = document.getElementById('local-decrypt-file'), localDecryptPasswordInput = document.getElementById('local-decrypt-password'), localDecryptBtn = document.getElementById('local-decrypt-btn');
-
-        // --- KRYPTO- & PEER-KONSTANTER ---
+        // Krypto & Peer-konstanter
         const ENCRYPTED_KEY_SIZE = 256, IV_SIZE = 12, SALT_SIZE = 16, PBKDF2_ITERATIONS = 100000;
-        
-        // --- APPLIKATIONENS TILLSTÅND (STATE) ---
+        // Applikationens tillstånd (State)
         let peer, dataConn, myKeys = { publicKey: null, encryptedPrivateKey: null }, peerPublicKey = null, fileToSend = null, localFileToDecrypt = null, receivedFiles = new Map();
-
-        // --- DATABASHANTERING (IndexedDB) ---
+        // Databashantering (IndexedDB)
         const DB_NAME = 'E2EE_KeyStorage', STORE_NAME = 'UserKeys';
         let db;
         function openDb() { return new Promise((resolve, reject) => { const r = indexedDB.open(DB_NAME, 1); r.onerror = () => reject("Databas kunde inte öppnas."); r.onsuccess = () => { db = r.result; resolve(); }; r.onupgradeneeded = e => e.target.result.createObjectStore(STORE_NAME, { keyPath: 'id' }); }); }
         function getKeysFromDb() { return new Promise(resolve => { if (!db) return resolve(null); const r = db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).get('userKeyPair'); r.onsuccess = () => resolve(r.result ? r.result.keys : null); r.onerror = () => resolve(null); }); }
         function saveKeysToDb(keys) { return new Promise((resolve, reject) => { const tx = db.transaction(STORE_NAME, 'readwrite').objectStore(STORE_NAME); tx.put({ id: 'userKeyPair', keys }).onsuccess = resolve; tx.onerror = () => reject("Kunde inte spara nycklar."); }); }
         function deleteKeysFromDb() { return new Promise(resolve => db.transaction(STORE_NAME, 'readwrite').objectStore(STORE_NAME).delete('userKeyPair').onsuccess = resolve); }
-
-        // --- UI- OCH HJÄLPFUNKTIONER ---
+        // UI- och hjälpfunktioner
         const showStatus = (m, t = 'info') => { statusDiv.textContent = `Status: ${m}`; statusDiv.className = `status status-${t}`; statusDiv.style.display = 'block'; };
         function triggerDownload(b, f) { const u = URL.createObjectURL(b); const a = document.createElement('a'); a.style.display = 'none'; a.href = u; a.download = f; document.body.appendChild(a); a.click(); URL.revokeObjectURL(u); a.remove(); }
         function addMessage(text, type) { const el = document.createElement('div'); el.className = `message ${type}`; el.textContent = text; chatLog.appendChild(el); chatLog.scrollTop = chatLog.scrollHeight; }
         function addSystemMessage(htmlContent) { const el = document.createElement('div'); el.className = 'message system'; el.innerHTML = htmlContent; chatLog.appendChild(el); chatLog.scrollTop = chatLog.scrollHeight; }
-        
-        function setupDropZone(dropZone, inputFile, onFileSelected) {
-            dropZone.addEventListener('click', () => inputFile.click());
-            dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
-            dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-            dropZone.addEventListener('drop', e => {
-                e.preventDefault(); dropZone.classList.remove('dragover');
-                if (e.dataTransfer.files.length > 0) onFileSelected(e.dataTransfer.files[0]);
-            });
-            inputFile.addEventListener('change', e => { if (e.target.files.length > 0) onFileSelected(e.target.files[0]); });
-        }
-        
-        function updateUiState(hasKeys) {
-            if(hasKeys) { keyMgmtSection.style.display = 'none'; mainAppSection.style.display = 'block'; initializePeer(); }
-            else { keyMgmtSection.style.display = 'block'; mainAppSection.style.display = 'none'; }
-        }
+        function setupDropZone(dropZone, inputFile, onFileSelected) { dropZone.addEventListener('click', () => inputFile.click()); dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); }); dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover')); dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); if (e.dataTransfer.files.length > 0) onFileSelected(e.dataTransfer.files[0]); }); inputFile.addEventListener('change', e => { if (e.target.files.length > 0) onFileSelected(e.target.files[0]); }); }
+        function updateUiState(hasKeys) { if(hasKeys) { keyMgmtSection.style.display = 'none'; mainAppSection.style.display = 'block'; initializePeer(); } else { keyMgmtSection.style.display = 'block'; mainAppSection.style.display = 'none'; } }
 
-        // --- KRYPTERINGSFUNKTIONER ---
-        async function createAndSaveKeys() { /* ... (Identisk från förra versionen) ... */ }
-        async function decryptPrivateKey(password, encryptedKeyBlob) { /* ... (Identisk från förra versionen) ... */ }
-        async function encryptFile(file, publicKey) { /* ... (Identisk från förra versionen) ... */ }
-        async function decryptFile(encryptedBlob, password) { /* ... (Identisk från förra versionen) ... */ }
-        // (Fullständig kod för krypteringsfunktionerna finns i slutet av script-taggen för att spara plats här)
-
+        // --- KRYPTERINGSFUNKTIONER (minifierade för läsbarhet, samma som förut) ---
+        async function createAndSaveKeys() { const password = keyPasswordInput.value; if (password.length < 8) return alert('Lösenordet måste vara minst 8 tecken.'); try { const keyPair = await crypto.subtle.generateKey({ name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['encrypt', 'decrypt']); const publicKeyJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey); const privateKeyJwk = await crypto.subtle.exportKey('jwk', keyPair.privateKey); const salt = crypto.getRandomValues(new Uint8Array(SALT_SIZE)); const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), { name: 'PBKDF2' }, false, ['deriveKey']); const aesKey = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' }, keyMaterial, { name: 'AES-GCM', length: 256 }, true, ['encrypt']); const iv = crypto.getRandomValues(new Uint8Array(IV_SIZE)); const encryptedPrivateKeyData = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, aesKey, new TextEncoder().encode(JSON.stringify(privateKeyJwk))); myKeys = { publicKey: publicKeyJwk, encryptedPrivateKey: new Blob([salt, iv, new Uint8Array(encryptedPrivateKeyData)]) }; await saveKeysToDb(myKeys); updateUiState(true); } catch (error) { alert(`Kunde inte skapa nycklar: ${error.message}`); } }
+        async function decryptPrivateKey(password, encryptedKeyBlob) { const buffer = await encryptedKeyBlob.arrayBuffer(); const salt = buffer.slice(0, SALT_SIZE); const iv = buffer.slice(SALT_SIZE, SALT_SIZE + IV_SIZE); const data = buffer.slice(SALT_SIZE + IV_SIZE); const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), { name: 'PBKDF2' }, false, ['deriveKey']); const aesKey = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' }, keyMaterial, { name: 'AES-GCM', length: 256 }, true, ['decrypt']); const decryptedBytes = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, aesKey, data); const privateKeyJwk = JSON.parse(new TextDecoder().decode(decryptedBytes)); return await crypto.subtle.importKey('jwk', privateKeyJwk, { name: 'RSA-OAEP', hash: 'SHA-256' }, true, ['decrypt']); }
+        async function encryptFile(file, publicKey) { const rsaPublicKey = await crypto.subtle.importKey('jwk', publicKey, { name: 'RSA-OAEP', hash: 'SHA-256' }, true, ['encrypt']); const aesKey = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt']); const exportedAesKey = await crypto.subtle.exportKey('raw', aesKey); const encryptedAesKey = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, rsaPublicKey, exportedAesKey); const iv = crypto.getRandomValues(new Uint8Array(IV_SIZE)); const fileBuffer = await file.arrayBuffer(); const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, aesKey, fileBuffer); return new Blob([encryptedAesKey, iv, ciphertext]); }
+        async function decryptFile(encryptedBlob, password) { const privateKey = await decryptPrivateKey(password, myKeys.encryptedPrivateKey); const buffer = await encryptedBlob.arrayBuffer(); const encryptedAesKey = buffer.slice(0, ENCRYPTED_KEY_SIZE); const iv = buffer.slice(ENCRYPTED_KEY_SIZE, ENCRYPTED_KEY_SIZE + IV_SIZE); const ciphertext = buffer.slice(ENCRYPTED_KEY_SIZE + IV_SIZE); const decryptedAesKeyBytes = await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, privateKey, encryptedAesKey); const aesKey = await crypto.subtle.importKey('raw', decryptedAesKeyBytes, { name: 'AES-GCM' }, true, ['decrypt']); const decryptedBuffer = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, aesKey, ciphertext); return new Blob([decryptedBuffer]); }
+        
         // --- PEERJS-LOGIK ---
         function initializePeer() {
             if (peer) peer.destroy();
@@ -147,29 +127,52 @@
         function setupDataConnection(connection) {
             dataConn = connection;
             dataConn.on('open', () => {
-                showStatus(`Ansluten!`, 'success');
+                showStatus('Ansluten!', 'success'); // <-- KORREKT FÄRGKOD
                 messageInput.disabled = false; sendBtn.disabled = false;
                 dataConn.send({ type: 'publicKey', key: myKeys.publicKey });
                 addSystemMessage('Skickade publik nyckel.');
             });
-            dataConn.on('data', data => { /* ... (Identisk från förra versionen) ... */ });
+            
+            // *** KORRIGERING: HÄNDELSELYSSNAREN MÅSTE FINNAS HÄR ***
+            dataConn.on('data', data => {
+                switch(data.type) {
+                    case 'publicKey':
+                        peerPublicKey = data.key;
+                        addSystemMessage(`Mottog publik nyckel från ${dataConn.peer}.`);
+                        break;
+                    case 'chat':
+                        addMessage(data.message, 'received');
+                        break;
+                    case 'file':
+                        const blob = new Blob([data.fileData]);
+                        receivedFiles.set(data.fileName, blob);
+                        const fileHtml = `Mottog fil: <strong>${data.fileName}</strong>
+                            <button class="btn-secondary" onclick="window.handleFileAction('${data.fileName}', 'download')">Ladda ner krypterad</button>
+                            <button class="btn-primary" onclick="window.handleFileAction('${data.fileName}', 'decrypt')">Dekryptera & Ladda ner</button>`;
+                        addSystemMessage(fileHtml);
+                        break;
+                }
+            });
+
             dataConn.on('close', () => {
-                showStatus('Anslutningen bruten.', 'error');
+                showStatus('Anslutningen bruten.', 'error'); // <-- KORREKT FÄRGKOD
                 messageInput.disabled = true; sendBtn.disabled = true; sendFileBtn.disabled = true;
                 peerPublicKey = null; dataConn = null;
             });
         }
 
+        // --- GLOBALA FUNKTIONER FÖR KNAPPAR I CHATTEN ---
+        window.handleFileAction = async (fileName, action) => { const fileBlob = receivedFiles.get(fileName); if (!fileBlob) return alert('Filen hittades inte.'); if (action === 'download') { triggerDownload(fileBlob, `krypterad-${fileName}`); } else if (action === 'decrypt') { const password = prompt(`Ange ditt huvudlösenord för att dekryptera "${fileName}":`); if (!password) return; try { const decryptedBlob = await decryptFile(fileBlob, password); triggerDownload(decryptedBlob, fileName); } catch (e) { alert(`Dekryptering misslyckades. Kontrollera lösenordet. Fel: ${e.message}`); } } };
+        
         // --- EVENT LISTENERS ---
         generateKeysBtn.addEventListener('click', createAndSaveKeys);
-        showKeyMgmtBtn.addEventListener('click', async () => { if (confirm("Är du säker? Detta raderar dina nuvarande nycklar permanent.")) { await deleteKeysFromDb(); myKeys = { publicKey: null, encryptedPrivateKey: null }; if (peer) peer.destroy(); updateUiState(false); } });
+        showKeyMgmtBtn.addEventListener('click', async () => { if (confirm("Är du säker? Detta raderar dina nuvarande nycklar permanent.")) { await deleteKeysFromDb(); myKeys = { publicKey: null, encryptedPrivateKey: null }; if (peer) peer.destroy(); updateUiState(false); location.reload(); } });
         connectBtn.addEventListener('click', () => { const remoteId = peerIdInput.value.trim(); if (remoteId) setupDataConnection(peer.connect(remoteId)); });
         copyIdBtn.addEventListener('click', () => navigator.clipboard.writeText(myIdSpan.textContent));
         sendBtn.addEventListener('click', () => { const msg = messageInput.value; if (msg && dataConn) { dataConn.send({ type: 'chat', message: msg }); addMessage(msg, 'sent'); messageInput.value = ''; } });
         sendFileBtn.addEventListener('click', async () => {
             if (!fileToSend) return;
-            if (!dataConn || !peerPublicKey) return addSystemMessage('Du måste vara ansluten till en mottagare som har delat sin publika nyckel.');
-            
+            if (!dataConn || !peerPublicKey) { addSystemMessage('Du måste vara ansluten till en mottagare som har delat sin publika nyckel.'); return; }
             addSystemMessage(`Krypterar och skickar ${fileToSend.name}...`);
             sendFileBtn.disabled = true;
             try {
@@ -178,10 +181,7 @@
                 dataConn.send({ type: 'file', fileName: fileToSend.name, fileData: encryptedBuffer });
                 fileToSend = null;
                 fileDropZone.querySelector('p').textContent = 'Dra och släpp en fil här, eller klicka för att välja';
-            } catch (e) {
-                addSystemMessage(`Fel vid filkryptering: ${e.message}`);
-                sendFileBtn.disabled = false;
-            }
+            } catch (e) { addSystemMessage(`Fel vid filkryptering: ${e.message}`); sendFileBtn.disabled = false; }
         });
         localDecryptBtn.addEventListener('click', async () => {
             const file = localFileToDecrypt;
@@ -192,9 +192,9 @@
                 triggerDownload(decryptedBlob, file.name.replace(/^krypterad-/, ''));
                 localFileToDecrypt = null;
                 localDecryptDropZone.querySelector('p').textContent = 'Dra och släpp en krypterad fil här, eller klicka för att välja';
-            } catch (e) {
-                alert(`Lokal dekryptering misslyckades: ${e.message}`);
-            }
+                localDecryptPasswordInput.value = '';
+                localDecryptFileInput.value = '';
+            } catch (e) { alert(`Lokal dekryptering misslyckades: ${e.message}`); }
         });
 
         // --- INITIERING VID SIDLADDNING ---
@@ -202,26 +202,9 @@
             await openDb();
             myKeys = await getKeysFromDb();
             updateUiState(!!myKeys);
-
-            setupDropZone(fileDropZone, fileInput, (file) => {
-                fileToSend = file;
-                fileDropZone.querySelector('p').textContent = `Vald fil: ${file.name}`;
-                sendFileBtn.disabled = false;
-            });
-            setupDropZone(localDecryptDropZone, localDecryptFileInput, (file) => {
-                localFileToDecrypt = file;
-                localDecryptDropZone.querySelector('p').textContent = `Vald fil: ${file.name}`;
-            });
+            setupDropZone(fileDropZone, fileInput, (file) => { fileToSend = file; fileDropZone.querySelector('p').textContent = `Vald fil: ${file.name}`; sendFileBtn.disabled = false; });
+            setupDropZone(localDecryptDropZone, localDecryptFileInput, (file) => { localFileToDecrypt = file; localDecryptDropZone.querySelector('p').textContent = `Vald fil: ${file.name}`; });
         })();
-
-        // --- FULLSTÄNDIG KRYPTERINGSLOGIK ---
-        // (Samma som tidigare, inklistrad här för fullständighet)
-        async function createAndSaveKeys() { const password = keyPasswordInput.value; if (password.length < 8) return alert('Lösenordet måste vara minst 8 tecken.'); try { const keyPair = await crypto.subtle.generateKey({ name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['encrypt', 'decrypt']); const publicKeyJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey); const privateKeyJwk = await crypto.subtle.exportKey('jwk', keyPair.privateKey); const salt = crypto.getRandomValues(new Uint8Array(SALT_SIZE)); const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), { name: 'PBKDF2' }, false, ['deriveKey']); const aesKey = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' }, keyMaterial, { name: 'AES-GCM', length: 256 }, true, ['encrypt']); const iv = crypto.getRandomValues(new Uint8Array(IV_SIZE)); const encryptedPrivateKeyData = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, aesKey, new TextEncoder().encode(JSON.stringify(privateKeyJwk))); myKeys = { publicKey: publicKeyJwk, encryptedPrivateKey: new Blob([salt, iv, new Uint8Array(encryptedPrivateKeyData)]) }; await saveKeysToDb(myKeys); updateUiState(true); } catch (error) { alert(`Kunde inte skapa nycklar: ${error.message}`); } }
-        async function decryptPrivateKey(password, encryptedKeyBlob) { const buffer = await encryptedKeyBlob.arrayBuffer(); const salt = buffer.slice(0, SALT_SIZE); const iv = buffer.slice(SALT_SIZE, SALT_SIZE + IV_SIZE); const data = buffer.slice(SALT_SIZE + IV_SIZE); const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), { name: 'PBKDF2' }, false, ['deriveKey']); const aesKey = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' }, keyMaterial, { name: 'AES-GCM', length: 256 }, true, ['decrypt']); const decryptedBytes = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, aesKey, data); const privateKeyJwk = JSON.parse(new TextDecoder().decode(decryptedBytes)); return await crypto.subtle.importKey('jwk', privateKeyJwk, { name: 'RSA-OAEP', hash: 'SHA-256' }, true, ['decrypt']); }
-        async function encryptFile(file, publicKey) { const rsaPublicKey = await crypto.subtle.importKey('jwk', publicKey, { name: 'RSA-OAEP', hash: 'SHA-256' }, true, ['encrypt']); const aesKey = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt']); const exportedAesKey = await crypto.subtle.exportKey('raw', aesKey); const encryptedAesKey = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, rsaPublicKey, exportedAesKey); const iv = crypto.getRandomValues(new Uint8Array(IV_SIZE)); const fileBuffer = await file.arrayBuffer(); const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, aesKey, fileBuffer); return new Blob([encryptedAesKey, iv, ciphertext]); }
-        async function decryptFile(encryptedBlob, password) { const privateKey = await decryptPrivateKey(password, myKeys.encryptedPrivateKey); const buffer = await encryptedBlob.arrayBuffer(); const encryptedAesKey = buffer.slice(0, ENCRYPTED_KEY_SIZE); const iv = buffer.slice(ENCRYPTED_KEY_SIZE, ENCRYPTED_KEY_SIZE + IV_SIZE); const ciphertext = buffer.slice(ENCRYPTED_KEY_SIZE + IV_SIZE); const decryptedAesKeyBytes = await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, privateKey, encryptedAesKey); const aesKey = await crypto.subtle.importKey('raw', decryptedAesKeyBytes, { name: 'AES-GCM' }, true, ['decrypt']); const decryptedBuffer = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, aesKey, ciphertext); return new Blob([decryptedBuffer]); }
-        window.handleFileAction = async (fileName, action) => { const fileBlob = receivedFiles.get(fileName); if (!fileBlob) return alert('Filen hittades inte.'); if (action === 'download') { triggerDownload(fileBlob, `krypterad-${fileName}`); } else if (action === 'decrypt') { const password = prompt(`Ange ditt huvudlösenord för att dekryptera "${fileName}":`); if (!password) return; try { const decryptedBlob = await decryptFile(fileBlob, password); triggerDownload(decryptedBlob, fileName); } catch (e) { alert(`Dekryptering misslyckades. Kontrollera lösenordet. Fel: ${e.message}`); } } };
-        dataConn.on('data', data => { switch(data.type) { case 'publicKey': peerPublicKey = data.key; addSystemMessage(`Mottog publik nyckel från ${dataConn.peer}.`); break; case 'chat': addMessage(data.message, 'received'); break; case 'file': const blob = new Blob([data.fileData]); receivedFiles.set(data.fileName, blob); const fileHtml = `Mottog fil: <strong>${data.fileName}</strong> <button class="btn-secondary" onclick="window.handleFileAction('${data.fileName}', 'download')">Ladda ner krypterad</button> <button class="btn-primary" onclick="window.handleFileAction('${data.fileName}', 'decrypt')">Dekryptera & Ladda ner</button>`; addSystemMessage(fileHtml); break; } });
     });
     </script>
 </body>
