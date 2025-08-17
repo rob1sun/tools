@@ -1,0 +1,41 @@
+[
+  {
+    "firstName": "Anna",
+    "lastName": "Andersson",
+    "email": "anna.andersson@organisation.se",
+    "publicKey": {
+      "key_ops": ["encrypt"],
+      "ext": true,
+      "kty": "RSA",
+      "n": "w_Ab-i-UaZ_V8K_kYv2Xy_1aBc_dEf_gHi_jKl_mNo_pQr_sTu_vWx_yZ-1_2a_3b_4c...",
+      "e": "AQAB",
+      "alg": "RSA-OAEP-256"
+    }
+  },
+  {
+    "firstName": "Erik",
+    "lastName": "Karlsson",
+    "email": "erik.karlsson@organisation.se",
+    "publicKey": {
+      "key_ops": ["encrypt"],
+      "ext": true,
+      "kty": "RSA",
+      "n": "v_Yz_6a_7b_8c_9d_0e_1f_2g_3h_4i_5j_6k_7l_8m_9n_0o_1p_2q_3r_4s_5t...",
+      "e": "AQAB",
+      "alg": "RSA-OAEP-256"
+    }
+  },
+  {
+    "firstName": "Support",
+    "lastName": "Avdelningen",
+    "email": "support@organisation.se",
+    "publicKey": {
+      "key_ops": ["encrypt"],
+      "ext": true,
+      "kty": "RSA",
+      "n": "z_5a_4b_3c_2d_1e_0f_9g_8h_7i_6j_5k_4l_3m_2n_1o_0p_9q_8r_7s_6t_5u...",
+      "e": "AQAB",
+      "alg": "RSA-OAEP-256"
+    }
+  }
+]
