@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>7-Zip filuppackare</title>
+    <script src="https://cdn.jsdelivr.net/npm/js7z@24.9.0/dist/js7z.min.js"></script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -55,9 +56,14 @@
             cursor: pointer;
             width: 100%;
             font-size: 1rem;
+            transition: background-color 0.2s;
         }
         button:hover {
             background-color: #1558b3;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
         }
         #file-list {
             list-style-type: none;
@@ -89,17 +95,14 @@
             margin: 1rem auto;
         }
         @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-            100% {
-                transform: rotate(360deg);
-            }
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
         .status {
             margin-top: 1rem;
             font-style: italic;
             color: #666;
+            text-align: center;
         }
     </style>
 </head>
@@ -115,15 +118,28 @@
             <label for="password">Ange lösenord:</label>
             <input type="password" id="password" placeholder="Lösenord för arkivet">
         </div>
-        <button onclick="extractFiles()">Packa upp filer</button>
+        <button id="extract-button" onclick="extractFiles()" disabled>Packa upp filer</button>
         <div class="spinner" id="spinner"></div>
-        <div class="status" id="status"></div>
+        <div class="status" id="status">Vänligen vänta, förbereder uppackningsmotor...</div>
         <h2>Resultat:</h2>
         <ul id="file-list"></ul>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/js7z@24.9.0/dist/js7z.min.js"></script>
     <script>
+        // Vänta tills hela fönstret inklusive skript är fulladdat
+        window.onload = function() {
+            const extractButton = document.getElementById('extract-button');
+            const status = document.getElementById('status');
+
+            if (typeof JS7z !== 'undefined') {
+                extractButton.disabled = false; // Aktivera knappen
+                status.textContent = 'Redo att packa upp filer.';
+            } else {
+                status.textContent = 'Fel: Kunde inte ladda uppackningsmotorn. Kontrollera din internetanslutning och ladda om sidan.';
+                console.error("JS7z library failed to load.");
+            }
+        };
+
         async function extractFiles() {
             const fileInput = document.getElementById('seven-zip-file');
             const passwordInput = document.getElementById('password');
@@ -144,6 +160,7 @@
             const password = passwordInput.value;
 
             try {
+                // Nu är vi säkra på att JS7z existerar när denna funktion anropas
                 const js7z = await JS7z();
                 const arrayBuffer = await file.arrayBuffer();
                 const uint8Array = new Uint8Array(arrayBuffer);
@@ -163,20 +180,21 @@
                     throw new Error("Fel lösenord angivet.");
                 }
 
-                if (result.files && result.files.length > 0) {
-                    status.textContent = `Hittade ${result.files.length} fil(er) i arkivet.`;
-                    result.files.forEach(extractedFile => {
-                        if (extractedFile.data) { // Kontrollera att det är en fil och inte en katalog
-                            const li = document.createElement('li');
-                            const a = document.createElement('a');
-                            const blob = new Blob([extractedFile.data]);
-                            const url = URL.createObjectURL(blob);
-                            a.href = url;
-                            a.download = extractedFile.name.split('/').pop();
-                            a.textContent = a.download;
-                            li.appendChild(a);
-                            fileList.appendChild(li);
-                        }
+                const extractedFiles = result.files.filter(f => f.data && f.data.length > 0);
+
+                if (extractedFiles.length > 0) {
+                    status.textContent = `Hittade ${extractedFiles.length} fil(er) i arkivet.`;
+                    extractedFiles.forEach(extractedFile => {
+                        const li = document.createElement('li');
+                        const a = document.createElement('a');
+                        const blob = new Blob([extractedFile.data]);
+                        const url = URL.createObjectURL(blob);
+                        a.href = url;
+                        // Säkerställer att vi får ett rent filnamn även från undermappar
+                        a.download = extractedFile.name.split('/').pop();
+                        a.textContent = a.download;
+                        li.appendChild(a);
+                        fileList.appendChild(li);
                     });
                 } else {
                      status.textContent = 'Inga filer hittades i arkivet eller så var det ett problem vid uppackningen. Kontrollera lösenordet och filen.';
