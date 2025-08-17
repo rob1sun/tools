@@ -28,7 +28,7 @@
   <div class="wrap">
     <header>
       <h1>🔓 PDF Unlocker – ESM + QPDF (WASM)</h1>
-      <span class="badge">All bearbetning sker lokalt i din webbläsare</span>
+      <span class="badge">All bearbetning sker lokalt i webbläsaren</span>
     </header>
 
     <div class="card">
@@ -53,7 +53,8 @@
   </div>
 
   <script type="module">
-    import createModule from "https://unpkg.com/@neslinesli93/qpdf-wasm@0.3.0/dist/qpdf.js?module";
+    // ✅ Viktigt: använd en ESM-CDN (esm.run) som ger default-export
+    import createModule from "https://esm.run/@neslinesli93/qpdf-wasm@0.3.0";
 
     const $ = (id) => document.getElementById(id);
     const fileEl = $('file'), pwdEl = $('pwd'), outEl = $('outName'), goEl = $('go');
@@ -93,17 +94,13 @@
 
         setProgress(20,'Initierar QPDF (WASM)…');
         const qpdf = await createModule({
-          locateFile: (path) => {
-            // Låt modulen hitta qpdf.wasm på samma CDN
-            if (path.endsWith('.wasm')) {
-              return 'https://unpkg.com/@neslinesli93/qpdf-wasm@0.3.0/dist/qpdf.wasm';
-            }
-            return path;
-          }
+          // 🧭 Peka .wasm till unpkg – stabilt och cachevänligt
+          locateFile: (path) => path.endsWith('.wasm')
+            ? 'https://unpkg.com/@neslinesli93/qpdf-wasm@0.3.0/dist/qpdf.wasm'
+            : path
         });
 
         const IN = 'in.pdf', OUT = 'out.pdf';
-        // Städa ev. tidigare körningar
         try { if(qpdf.FS.analyzePath(IN).exists) qpdf.FS.unlink(IN); } catch{}
         try { if(qpdf.FS.analyzePath(OUT).exists) qpdf.FS.unlink(OUT); } catch{}
 
@@ -115,8 +112,7 @@
           ? [`--password=${pwd}`, '--decrypt', IN, OUT]
           : ['--decrypt', IN, OUT]; // ägarskydd: inget lösenord
 
-        // Kör CLI; kastar vid fel (t.ex. fel lösenord)
-        qpdf.callMain(args);
+        qpdf.callMain(args); // kastar vid fel
 
         setProgress(80,'Läser resultat…');
         const outBytes = qpdf.FS.readFile(OUT);
