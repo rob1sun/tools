@@ -77,9 +77,8 @@
     </footer>
   </div>
 
-  <!-- Vi använder ESM-varianten från CDN. WASM-filen hämtas automatiskt. -->
+  <!-- ESM-varianten från CDN. WASM-filen hämtas automatiskt. -->
   <script type="module">
-    // Hämta 7-Zip WASM (ESM). Kräver modern webbläsare.
     import SevenZip from "https://cdn.jsdelivr.net/npm/7z-wasm@1.2.0/7zz.es6.js";
 
     const els = {
@@ -96,7 +95,6 @@
     let sevenZip = null;
     let archiveName = null;
 
-    // Små hjälpare
     const log = (msg, cls = '') => {
       const line = document.createElement('div');
       if (cls) line.className = cls;
@@ -163,7 +161,6 @@
       log(`Läser in: ${file.name} (${fmtBytes(file.size)})`);
       const buf = new Uint8Array(await file.arrayBuffer());
 
-      // Skriv till den virtuella filsystemet
       archiveName = file.name;
       try {
         const stream = sevenZip.FS.open(archiveName, "w+");
@@ -185,37 +182,56 @@
 
       const outDir = "/out";
       try {
-        // Nollställ utdatakatalog
-        try { sevenZip.FS.rmdir(outDir); } catch {}
+        // Nollställ utdatakatalog (tyst ignorera fel)
+        try {
+          // Rensa tidigare innehåll rekursivt om det finns
+          const wipe = (dir) => {
+            try {
+              for (const name of sevenZip.FS.readdir(dir)) {
+                if (name === "." || name === "..") continue;
+                const full = `${dir}/${name}`;
+                const st = sevenZip.FS.stat(full);
+                if (sevenZip.FS.isDir(st.mode)) {
+                  wipe(full);
+                  try { sevenZip.FS.rmdir(full); } catch {}
+                } else {
+                  try { sevenZip.FS.unlink(full); } catch {}
+                }
+              }
+            } catch {}
+          };
+          wipe(outDir);
+          try { sevenZip.FS.rmdir(outDir); } catch {}
+        } catch {}
         try { sevenZip.FS.mkdir(outDir); } catch {}
 
         log("Extraherar…");
         els.status.innerHTML = '<span class="spinner" aria-hidden="true"></span> Extraherar';
 
-        // 7z-kommandot: x = extrahera full path, -o = outputdir, -p = lösenord, -y = svara ja automatiskt
         const args = ["x", "-y", `-o${outDir}`, archiveName];
         if (pass) args.splice(2, 0, `-p${pass}`);
 
-        // Kör 7z
         try {
           sevenZip.callMain(args);
         } catch (e) {
-          // callMain kastar vid non-zero exit code
           log("Extrahering misslyckades. Kontrollera lösenordet.", "err");
           els.status.textContent = "Misslyckades";
           els.extract.disabled = false;
           return;
         }
 
-        // Läs ut filer från /out rekursivt
+        // --- ROBUST PATCH: använd isDir/isFile i stället för stat.isDirectory() ---
         const list = [];
         const walk = (dir) => {
           for (const name of sevenZip.FS.readdir(dir)) {
             if (name === "." || name === "..") continue;
             const full = `${dir}/${name}`;
-            const stat = sevenZip.FS.stat(full);
-            if (stat.isDirectory()) walk(full);
-            else list.push({ path: full, size: stat.size });
+            const st = sevenZip.FS.stat(full);
+            if (sevenZip.FS.isDir(st.mode)) {
+              walk(full);
+            } else if (sevenZip.FS.isFile(st.mode)) {
+              list.push({ path: full, size: st.size });
+            }
           }
         };
         walk(outDir);
@@ -276,9 +292,23 @@
       els.clear.disabled = true;
       els.file.value = '';
       els.pass.value = '';
-      // Försök städa undan i FS
-      try { sevenZip.FS.unlink(archiveName); } catch {}
-      try { sevenZip.FS.rmdir('/out'); } catch {}
+      try { if (archiveName) sevenZip.FS.unlink(archiveName); } catch {}
+      try {
+        const outDir = '/out';
+        const wipe = (dir) => {
+          try {
+            for (const name of sevenZip.FS.readdir(dir)) {
+              if (name === "." || name === "..") continue;
+              const full = `${dir}/${name}`;
+              const st = sevenZip.FS.stat(full);
+              if (sevenZip.FS.isDir(st.mode)) { wipe(full); try { sevenZip.FS.rmdir(full); } catch {} }
+              else { try { sevenZip.FS.unlink(full); } catch {} }
+            }
+          } catch {}
+        };
+        wipe(outDir);
+        try { sevenZip.FS.rmdir(outDir); } catch {}
+      } catch {}
       archiveName = null;
       log("Rensat.", "ok");
       els.status.textContent = "Klar.";
