@@ -1,210 +1,288 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="sv">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>7-Zip filuppackare (Alternativ CDN)</title>
-    <script src="https://unpkg.com/js7z@latest/dist/js7z.min.js"></script>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            margin: 0;
-            padding: 2rem;
-            background-color: #f4f7f6;
-            color: #333;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-        }
-        .container {
-            background-color: #ffffff;
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 600px;
-        }
-        h1 {
-            color: #1a73e8;
-            border-bottom: 2px solid #e0e0e0;
-            padding-bottom: 0.5rem;
-            margin-top: 0;
-        }
-        .file-input-wrapper {
-            margin: 1.5rem 0;
-        }
-        input[type="file"], input[type="password"] {
-            width: 100%;
-            padding: 12px;
-            margin-top: 0.5rem;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        label {
-            font-weight: bold;
-            display: block;
-        }
-        button {
-            background-color: #1a73e8;
-            color: white;
-            padding: 14px 20px;
-            margin: 1rem 0;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            width: 100%;
-            font-size: 1rem;
-            transition: background-color 0.2s;
-        }
-        button:hover {
-            background-color: #1558b3;
-        }
-        button:disabled {
-            background-color: #cccccc;
-            cursor: not-allowed;
-        }
-        #file-list {
-            list-style-type: none;
-            padding: 0;
-            margin-top: 1.5rem;
-        }
-        #file-list li {
-            background-color: #e8f0fe;
-            border-left: 5px solid #1a73e8;
-            padding: 10px;
-            margin-bottom: 5px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        #file-list a {
-            text-decoration: none;
-            color: #1a73e8;
-            font-weight: bold;
-        }
-        .spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            border-left-color: #1a73e8;
-            animation: spin 1s ease infinite;
-            display: none; /* Dold som standard */
-            margin: 1rem auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .status {
-            margin-top: 1rem;
-            font-style: italic;
-            color: #666;
-            text-align: center;
-        }
-    </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Öppna lösenordsskyddad 7z i webbläsaren</title>
+<style>
+  :root { --bg:#0b132b; --panel:#1c2541; --accent:#5bc0be; --muted:#a3b2c2; --ok:#2ecc71; --err:#ff6b6b;}
+  html,body{height:100%}
+  body{margin:0;background:linear-gradient(180deg,#0b132b 0%, #0f2044 100%);color:#f2f6ff;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif;display:flex;align-items:center;justify-content:center;padding:24px}
+  .app{width:min(100%,980px);background:rgba(28,37,65,.85);border:1px solid rgba(255,255,255,.08);box-shadow:0 20px 60px rgba(0,0,0,.35);backdrop-filter:blur(6px);border-radius:22px;overflow:hidden}
+  header{padding:22px 26px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;gap:16px;align-items:center}
+  header h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.2px}
+  header .tag{margin-left:auto;background:rgba(91,192,190,.18);color:#b9fffb;border:1px solid rgba(91,192,190,.35);padding:4px 10px;border-radius:999px;font-size:12px}
+  main{display:grid;grid-template-columns:1fr 1.1fr;gap:0}
+  .left,.right{padding:22px 26px}
+  .left{border-right:1px solid rgba(255,255,255,.07)}
+  .drop{border:2px dashed rgba(255,255,255,.18);border-radius:16px;padding:22px;display:flex;gap:16px;align-items:center;justify-content:space-between;background:rgba(255,255,255,.02)}
+  .drop.drag{border-color:var(--accent);background:rgba(91,192,190,.08)}
+  .drop p{margin:0;color:#e6eefb}
+  .drop small{color:var(--muted)}
+  .actions{margin-top:16px;display:flex;gap:10px;align-items:center}
+  input[type="file"]{display:none}
+  .btn{appearance:none;border:1px solid rgba(255,255,255,.2);background:#17203a;color:#fff;border-radius:12px;padding:10px 14px;font-weight:600;cursor:pointer}
+  .btn.primary{background:var(--accent);color:#082e2e;border-color:transparent}
+  .btn:disabled{opacity:.55;cursor:not-allowed}
+  .field{display:flex;gap:8px;align-items:center;margin-top:12px}
+  .field input{flex:1;background:#0f1730;border:1px solid rgba(255,255,255,.16);border-radius:12px;color:#eaf2ff;padding:11px 12px;font-size:14px}
+  .log{margin-top:16px;background:#0d142b;border:1px solid rgba(255,255,255,.1);border-radius:12px;min-height:120px;max-height:220px;overflow:auto;padding:12px;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;font-size:12.5px;color:#e8eefc}
+  .log .ok{color:var(--ok)} .log .err{color:var(--err)}
+  .right h2{font-size:14px;text-transform:uppercase;letter-spacing:.12em;color:#cde7ff;margin:0 0 10px}
+  .files{display:grid;grid-template-columns:1fr auto;gap:8px}
+  .file{display:flex;gap:10px;align-items:center;background:#0f1730;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:10px}
+  .file .meta{flex:1;overflow:hidden}
+  .file .name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .file .size{font-size:12px;color:var(--muted)}
+  .file a{white-space:nowrap}
+  footer{padding:16px 26px;border-top:1px solid rgba(255,255,255,.07);display:flex;gap:10px;align-items:center;justify-content:space-between;color:#c9d7ee}
+  .hint{color:#a9bad3;font-size:12px}
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;margin-right:6px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
 </head>
 <body>
-
-    <div class="container">
-        <h1>Ladda upp och packa upp 7-Zip-fil</h1>
-        <div class="file-input-wrapper">
-            <label for="seven-zip-file">Välj en lösenordsskyddad .7z-fil:</label>
-            <input type="file" id="seven-zip-file" accept=".7z">
+  <div class="app">
+    <header>
+      <h1>Öppna lösenordsskyddad 7z → ladda ner filer</h1>
+      <span class="tag">Klient-side • Ingen uppladdning</span>
+    </header>
+    <main>
+      <section class="left">
+        <div id="drop" class="drop" tabindex="0" aria-label="Dra & släpp .7z här">
+          <div>
+            <p><strong>Dra & släpp</strong> en <code>.7z</code> här – eller välj fil</p>
+            <small>Stöder krypterade 7z (lösenord krävs)</small>
+          </div>
+          <label class="btn" for="file">Välj fil…</label>
+          <input id="file" type="file" accept=".7z,application/x-7z-compressed" />
         </div>
-        <div class="file-input-wrapper">
-            <label for="password">Ange lösenord:</label>
-            <input type="password" id="password" placeholder="Lösenord för arkivet">
+        <div class="field">
+          <input id="password" type="password" placeholder="Lösenord för arkivet" autocomplete="off" />
+          <button id="extractBtn" class="btn primary" disabled>Extrahera</button>
         </div>
-        <button id="extract-button" onclick="extractFiles()" disabled>Packa upp filer</button>
-        <div class="spinner" id="spinner"></div>
-        <div class="status" id="status">Vänligen vänta, förbereder uppackningsmotor...</div>
-        <h2>Resultat:</h2>
-        <ul id="file-list"></ul>
-    </div>
+        <div class="actions">
+          <button id="clearBtn" class="btn" disabled>Rensa</button>
+        </div>
+        <div id="log" class="log" aria-live="polite"></div>
+      </section>
+      <section class="right">
+        <h2>Filer att ladda ner</h2>
+        <div id="files" class="files" role="list"></div>
+      </section>
+    </main>
+    <footer>
+      <div class="hint">Allt sker i din webbläsare. Stora arkiv kan kräva mycket minne.</div>
+      <div id="status">Initierar 7-Zip… <span class="spinner" aria-hidden="true"></span></div>
+    </footer>
+  </div>
 
-    <script>
-        window.onload = function() {
-            const extractButton = document.getElementById('extract-button');
-            const status = document.getElementById('status');
+  <!-- Vi använder ESM-varianten från CDN. WASM-filen hämtas automatiskt. -->
+  <script type="module">
+    // Hämta 7-Zip WASM (ESM). Kräver modern webbläsare.
+    import SevenZip from "https://cdn.jsdelivr.net/npm/7z-wasm@1.2.0/7zz.es6.js";
 
-            if (typeof JS7z !== 'undefined') {
-                extractButton.disabled = false;
-                status.textContent = 'Redo att packa upp filer.';
-            } else {
-                status.textContent = 'Fel: Kunde inte ladda uppackningsmotorn. Kontrollera din internetanslutning och ladda om sidan.';
-                console.error("JS7z library failed to load.");
-            }
-        };
+    const els = {
+      drop: document.getElementById('drop'),
+      file: document.getElementById('file'),
+      pass: document.getElementById('password'),
+      extract: document.getElementById('extractBtn'),
+      clear: document.getElementById('clearBtn'),
+      log: document.getElementById('log'),
+      files: document.getElementById('files'),
+      status: document.getElementById('status')
+    };
 
-        async function extractFiles() {
-            const fileInput = document.getElementById('seven-zip-file');
-            const passwordInput = document.getElementById('password');
-            const fileList = document.getElementById('file-list');
-            const status = document.getElementById('status');
-            const spinner = document.getElementById('spinner');
+    let sevenZip = null;
+    let archiveName = null;
 
-            if (fileInput.files.length === 0) {
-                status.textContent = 'Vänligen välj en fil först.';
-                return;
-            }
+    // Små hjälpare
+    const log = (msg, cls = '') => {
+      const line = document.createElement('div');
+      if (cls) line.className = cls;
+      line.textContent = msg;
+      els.log.appendChild(line);
+      els.log.scrollTop = els.log.scrollHeight;
+    };
+    const fmtBytes = (n) => {
+      if (n === 0) return '0 B';
+      const k = 1024, u = ['B','KB','MB','GB','TB'];
+      const i = Math.floor(Math.log(n)/Math.log(k));
+      return (n/Math.pow(k,i)).toFixed(2) + ' ' + u[i];
+    };
 
-            fileList.innerHTML = '';
-            status.textContent = '';
-            spinner.style.display = 'block';
+    // Init WASM
+    (async () => {
+      try {
+        sevenZip = await SevenZip({
+          print: (t) => log(t),
+          printErr: (t) => log(t, 'err')
+        });
+        els.status.textContent = "Klar.";
+        log("7-Zip laddad (WASM).", "ok");
+      } catch (e) {
+        els.status.textContent = "Fel vid init.";
+        log("Kunde inte initiera 7-Zip: " + (e?.message || e), "err");
+      }
+    })();
 
-            const file = fileInput.files[0];
-            const password = passwordInput.value;
+    // Dra & släpp
+    const preventers = ['dragenter','dragover','dragleave','drop'];
+    preventers.forEach(ev => {
+      els.drop.addEventListener(ev, (e)=>{e.preventDefault();e.stopPropagation();});
+    });
+    ['dragenter','dragover'].forEach(ev=>{
+      els.drop.addEventListener(ev, ()=>els.drop.classList.add('drag'));
+    });
+    ['dragleave','drop'].forEach(ev=>{
+      els.drop.addEventListener(ev, ()=>els.drop.classList.remove('drag'));
+    });
+    els.drop.addEventListener('drop', async (e)=>{
+      const f = e.dataTransfer.files?.[0];
+      if (f) await handleFile(f);
+    });
 
-            try {
-                const js7z = await JS7z();
-                const arrayBuffer = await file.arrayBuffer();
-                const uint8Array = new Uint8Array(arrayBuffer);
+    // Filväljare
+    els.file.addEventListener('change', async (e)=>{
+      const f = e.target.files?.[0];
+      if (f) await handleFile(f);
+    });
 
-                status.textContent = 'Läser och bearbetar arkivet... Detta kan ta en stund för stora filer.';
+    async function handleFile(file){
+      els.log.innerHTML = '';
+      els.files.innerHTML = '';
+      els.clear.disabled = false;
 
-                const result = js7z.callMain(['x', file.name, '-p' + password, '-o' + 'output'], [{
-                    name: file.name,
-                    data: uint8Array
-                }]);
+      if (!sevenZip){
+        log("WASM ej redo ännu. Försök igen.", "err");
+        return;
+      }
+      if (!/\.7z$/i.test(file.name)) {
+        log("Varning: Filen verkar inte vara .7z – fortsätter ändå…", 'err');
+      }
+      log(`Läser in: ${file.name} (${fmtBytes(file.size)})`);
+      const buf = new Uint8Array(await file.arrayBuffer());
 
-                if (result.error) {
-                    throw new Error(result.error);
-                }
-                
-                if (result.stdout.includes("ERROR: Wrong password")) {
-                    throw new Error("Fel lösenord angivet.");
-                }
+      // Skriv till den virtuella filsystemet
+      archiveName = file.name;
+      try {
+        const stream = sevenZip.FS.open(archiveName, "w+");
+        sevenZip.FS.write(stream, buf, 0, buf.length);
+        sevenZip.FS.close(stream);
+        log("Arkiv skrivet till minnes-FS.", "ok");
+        els.extract.disabled = false;
+      } catch (e) {
+        log("Fel när arkivet skrevs till FS: " + (e?.message || e), "err");
+      }
+    }
 
-                const extractedFiles = result.files.filter(f => f.data && f.data.length > 0);
+    // Extrahera
+    els.extract.addEventListener('click', async ()=>{
+      els.extract.disabled = true;
+      els.files.innerHTML = '';
+      const pass = els.pass.value ?? '';
+      if (!archiveName) { log("Ingen fil uppladdad.", "err"); return; }
 
-                if (extractedFiles.length > 0) {
-                    status.textContent = `Hittade ${extractedFiles.length} fil(er) i arkivet.`;
-                    extractedFiles.forEach(extractedFile => {
-                        const li = document.createElement('li');
-                        const a = document.createElement('a');
-                        const blob = new Blob([extractedFile.data]);
-                        const url = URL.createObjectURL(blob);
-                        a.href = url;
-                        a.download = extractedFile.name.split('/').pop();
-                        a.textContent = a.download;
-                        li.appendChild(a);
-                        fileList.appendChild(li);
-                    });
-                } else {
-                     status.textContent = 'Inga filer hittades i arkivet eller så var det ett problem vid uppackningen. Kontrollera lösenordet och filen.';
-                }
+      const outDir = "/out";
+      try {
+        // Nollställ utdatakatalog
+        try { sevenZip.FS.rmdir(outDir); } catch {}
+        try { sevenZip.FS.mkdir(outDir); } catch {}
 
-            } catch (error) {
-                console.error('Ett fel uppstod:', error);
-                status.textContent = 'Ett fel inträffade: ' + error.message;
-            } finally {
-                spinner.style.display = 'none';
-            }
+        log("Extraherar…");
+        els.status.innerHTML = '<span class="spinner" aria-hidden="true"></span> Extraherar';
+
+        // 7z-kommandot: x = extrahera full path, -o = outputdir, -p = lösenord, -y = svara ja automatiskt
+        const args = ["x", "-y", `-o${outDir}`, archiveName];
+        if (pass) args.splice(2, 0, `-p${pass}`);
+
+        // Kör 7z
+        try {
+          sevenZip.callMain(args);
+        } catch (e) {
+          // callMain kastar vid non-zero exit code
+          log("Extrahering misslyckades. Kontrollera lösenordet.", "err");
+          els.status.textContent = "Misslyckades";
+          els.extract.disabled = false;
+          return;
         }
-    </script>
 
+        // Läs ut filer från /out rekursivt
+        const list = [];
+        const walk = (dir) => {
+          for (const name of sevenZip.FS.readdir(dir)) {
+            if (name === "." || name === "..") continue;
+            const full = `${dir}/${name}`;
+            const stat = sevenZip.FS.stat(full);
+            if (stat.isDirectory()) walk(full);
+            else list.push({ path: full, size: stat.size });
+          }
+        };
+        walk(outDir);
+
+        if (list.length === 0) {
+          log("Inga filer extraherade. Är lösenordet korrekt? Vissa arkiv döljer filnamn när lösenordet är fel.", "err");
+          els.status.textContent = "Inga filer";
+          els.extract.disabled = false;
+          return;
+        }
+
+        log(`Extraherade ${list.length} fil(er).`, "ok");
+        els.status.textContent = "Klar";
+
+        // Presentera nedladdningslänkar
+        for (const f of list) {
+          const data = sevenZip.FS.readFile(f.path);
+          const blob = new Blob([data]);
+          const url = URL.createObjectURL(blob);
+
+          const row = document.createElement('div');
+          row.className = 'file';
+          const meta = document.createElement('div');
+          meta.className = 'meta';
+          const name = document.createElement('div');
+          name.className = 'name';
+          name.textContent = f.path.replace(/^\/out\//,'');
+          const size = document.createElement('div');
+          size.className = 'size';
+          size.textContent = fmtBytes(f.size);
+          meta.appendChild(name); meta.appendChild(size);
+
+          const a = document.createElement('a');
+          a.className = 'btn';
+          a.href = url;
+          a.download = name.textContent;
+          a.textContent = 'Ladda ner';
+
+          row.appendChild(meta);
+          row.appendChild(a);
+          els.files.appendChild(row);
+        }
+
+        els.extract.disabled = false;
+
+      } catch (e) {
+        log("Oväntat fel: " + (e?.message || e), "err");
+        els.status.textContent = "Fel";
+        els.extract.disabled = false;
+      }
+    });
+
+    // Rensa
+    els.clear.addEventListener('click', ()=>{
+      els.log.innerHTML = '';
+      els.files.innerHTML = '';
+      els.extract.disabled = true;
+      els.clear.disabled = true;
+      els.file.value = '';
+      els.pass.value = '';
+      // Försök städa undan i FS
+      try { sevenZip.FS.unlink(archiveName); } catch {}
+      try { sevenZip.FS.rmdir('/out'); } catch {}
+      archiveName = null;
+      log("Rensat.", "ok");
+      els.status.textContent = "Klar.";
+    });
+  </script>
 </body>
 </html>
