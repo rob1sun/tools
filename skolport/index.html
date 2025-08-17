@@ -50,12 +50,6 @@
     @keyframes shimmer { 0% { background-position: 0 0; } 100% { background-position: -200% 0; } }
 
     /* IDP-väljare */
-    /* removed */
-    /* removed */
-    /* removed */
-    /* removed */
-    /* removed */
-      /* IDP-väljare */
     .idp-panel{max-width:800px;margin:24px auto 8px;padding:0 16px}
     .idp-list{list-style:none;margin:12px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
     .idp-item{display:flex;align-items:center;gap:10px;background:linear-gradient(180deg,var(--card),#0f141c);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:10px;cursor:pointer;box-shadow:var(--shadow);transition:transform .12s ease,background .2s ease}
@@ -95,7 +89,6 @@
     const DATA_URL = "https://fedfeeds.robertsundin.se/sp/json/splink.json";
     const IDP_URL = "https://fedfeeds.robertsundin.se/idp/json/multiidp.json";
 
-    /** Hjälpfunktioner **/
     const $ = s => document.querySelector(s);
     function setStatus(msg, busy = false) {
       const el = $("#status");
@@ -115,9 +108,8 @@
       return [];
     }
 
-    let selectedIdp = null; // { idpEntityId, idpDisplayName, idpImg }
+    let selectedIdp = null;
 
-    /*** IDP-VÄLJARE ***/
     async function loadIdps() {
       const listEl = $('#idp-list');
       const statusEl = $('#idp-status');
@@ -125,100 +117,16 @@
       statusEl.textContent = 'Laddar IDP-lista…';
       try {
         const res = await fetch(IDP_URL, { cache: 'no-store' });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const payload = await res.json();
-        const items = normalizeItems(payload);
-        if (!items.length) {
-          statusEl.textContent = 'Hittade inga IDP:er.';
-          return;
-        }
-        statusEl.textContent = 'Välj en IDP:';
-        renderIdpList(items);
-      } catch (e) {
-        console.error(e);
-        statusEl.textContent = 'Kunde inte läsa in IDP-listan.';
-      }
-    }
-
-    function renderIdpList(items) {
-      const listEl = $('#idp-list');
-      listEl.setAttribute('aria-busy', 'false');
-      listEl.innerHTML = '';
-
-      const frag = document.createDocumentFragment();
-      for (const item of items) {
-        const li = document.createElement('li');
-        li.className = 'idp-item';
-        li.tabIndex = 0;
-        li.role = 'button';
-        li.setAttribute('aria-label', `Välj ${item.idpDisplayName || 'IDP'}`);
-
-        const img = document.createElement('img');
-        img.className = 'idp-thumb';
-        const src = (item.idpImg || '').trim();
-        if (src) img.src = src;
-        img.alt = item.idpDisplayName || '';
-        img.loading = 'lazy';
-        img.decoding = 'async';
-        img.referrerPolicy = 'no-referrer';
-        img.onerror = () => {
-          const fallback = document.createElement('div');
-          fallback.className = 'idp-thumb';
-          fallback.style.display = 'grid';
-          fallback.style.placeItems = 'center';
-          fallback.style.fontWeight = '700';
-          fallback.style.background = '#1f2937';
-          const initials = (item.idpDisplayName || '?').split(' ').slice(0,2).map(s=>s[0]).join('').toUpperCase();
-          fallback.textContent = initials;
-          img.replaceWith(fallback);
-        };
-
-        const name = document.createElement('div');
-        name.className = 'idp-name';
-        name.textContent = item.idpDisplayName || '(utan namn)';
-
-        li.appendChild(img);
-        li.appendChild(name);
-
-        const choose = () => selectIdp(item);
-        li.addEventListener('click', choose);
-        li.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); choose(); }});
-
-        frag.appendChild(li);
-      }
-      listEl.appendChild(frag);
-    }`);
-
-        const img = document.createElement('img');
-        img.className = 'idp-thumb';
-        if (item.idpImg) img.src = item.idpImg;
-        img.alt = item.idpDisplayName || '';
-
-        const name = document.createElement('div');
-        name.className = 'idp-name';
-        name.textContent = item.idpDisplayName || '(utan namn)';
-
-        li.appendChild(img);
-        li.appendChild(name);
-
-        const choose = () => selectIdp(item);
-        li.addEventListener('click', choose);
-        li.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); choose(); }});
-
-        frag.appendChild(li);
-      }
-      listEl.appendChild(frag);
-    }
+        if (!res.ok) throw new Error(`HTTP ${res.status}
 
     function selectIdp(item) {
-      selectedIdp = item || null;
+      selectedIdp = item;
       $('#idp-panel').style.display = 'none';
       $('#cards').hidden = false;
       setStatus('Laddar data…', true);
       loadData();
     }
 
-    /*** KORT ***/
     function createCard(item) {
       const tpl = document.getElementById('card-template');
       const node = tpl.content.firstElementChild.cloneNode(true);
@@ -233,14 +141,13 @@
       const target = item.spTarget || '';
       const idpPart = selectedIdp?.idpEntityId || '';
 
-      node.href = `${base}${idpPart}${target}`; // spLink + idpEntityId + spTarget
+      node.href = `${base}${idpPart}${target}`;
       node.setAttribute('aria-label', `Öppna: ${displayName}`);
 
       titleEl.textContent = displayName;
 
-      const description = item.description || '';
-      if (description) {
-        descEl.textContent = description;
+      if (item.description) {
+        descEl.textContent = item.description;
       } else {
         descEl.remove();
       }
@@ -251,10 +158,6 @@
       } else {
         node.querySelector('.media').remove();
       }
-
-      node.addEventListener('click', (e) => {
-        if (!node.href) e.preventDefault();
-      });
 
       return node;
     }
@@ -282,9 +185,7 @@
         }
 
         const frag = document.createDocumentFragment();
-        for (const item of items) {
-          frag.appendChild(createCard(item));
-        }
+        items.forEach(item => frag.appendChild(createCard(item)));
         cardsEl.appendChild(frag);
         setStatus(`Visar ${items.length} kort.`);
       } catch (err) {
@@ -294,9 +195,7 @@
       }
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      loadIdps();
-    });
+    document.addEventListener('DOMContentLoaded', loadIdps);
     document.getElementById('reload').addEventListener('click', () => {
       if (!selectedIdp) {
         $('#idp-panel').style.display = '';
