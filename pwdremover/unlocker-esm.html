@@ -1,3 +1,4 @@
+<!-- Version: 6.0 (Integrerad ESM-lösning) -->
 <!DOCTYPE html>
 <html lang="sv">
 <head>
@@ -7,58 +8,56 @@
 <style>
   :root { --bg:#0b1020; --card:#151b2e; --muted:#9aa3b2; --accent:#7cc2ff; --err:#ff6b6b; }
   *{box-sizing:border-box}
-  body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(160deg,#0b1020,#0e1426 60%,#0b1020);color:#e9eef7}
-  .wrap{max-width:920px;margin:32px auto;padding:0 16px}
+  body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(160deg,#0b1020,#0e1426 60%,#0b1020);color:#e9eef7; display: flex; align-items: center; justify-content: center; min-height: 100vh;}
+  .wrap{width: 100%; max-width:500px;margin:32px auto;padding:0 16px}
   header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
   header h1{font-size:22px;margin:0}
-  header .badge{font-size:12px;background:#24304e;color:#cfe3ff;padding:4px 8px;border-radius:999px}
-  .card{background:linear-gradient(180deg,#161c31,#121829);border:1px solid #222a44;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.35);padding:18px}
+  header .badge{font-size:12px;background:#24304e;color:#cfe3ff;padding:4px 8px;border-radius:999px; white-space: nowrap;}
+  .card{background:linear-gradient(180deg,#161c31,#121829);border:1px solid #222a44;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.35);padding:24px}
   label{font-size:13px;color:#cfd6e6;margin-bottom:6px;display:block}
-  input,button{width:100%;padding:12px 14px;border-radius:12px;border:1px solid #2a3454;background:#0f1425;color:#e9eef7;outline:none}
-  input::file-selector-button{border:0;background:#1d2744;color:#cfe3ff;padding:10px 12px;border-radius:10px;margin-right:10px}
-  button{cursor:pointer;background:#1b8fff;border-color:#2d6df0;font-weight:600}
+  input,button{width:100%;padding:12px 14px;border-radius:12px;border:1px solid #2a3454;background:#0f1425;color:#e9eef7;outline:none; font-size: 1rem;}
+  input::file-selector-button{border:0;background:#1d2744;color:#cfe3ff;padding:10px 12px;border-radius:10px;margin-right:10px; cursor: pointer;}
+  button{cursor:pointer;background:#1b8fff;border-color:#2d6df0;font-weight:600; transition: background-color 0.2s ease;}
+  button:hover:not(:disabled) { background-color: #389fff; }
   button:disabled{opacity:.6;cursor:not-allowed}
   .progress{margin-top:12px;background:#0e1425;border:1px solid #253055;border-radius:12px;overflow:hidden;height:12px}
-  .bar{height:100%;width:0%;background:linear-gradient(90deg,#3ba6ff,#43d787)}
-  .log{margin-top:10px;font-family:ui-monospace,Menlo,Consolas,monospace;background:#0a0f1d;border:1px dashed #2a3454;padding:12px;border-radius:10px;white-space:pre-wrap}
+  .bar{height:100%;width:0%;background:linear-gradient(90deg,#3ba6ff,#43d787); transition: width 0.3s ease;}
+  .log{margin-top:10px;font-family:ui-monospace,Menlo,Consolas,monospace;background:#0a0f1d;border:1px dashed #2a3454;padding:12px;border-radius:10px;white-space:pre-wrap; word-wrap: break-word;}
   .muted{font-size:12px;color:#9aa3b2}
 </style>
 </head>
 <body>
   <div class="wrap">
     <header>
-      <h1>🔓 PDF Unlocker – ESM + QPDF (WASM)</h1>
-      <span class="badge">All bearbetning sker lokalt i webbläsaren</span>
+      <h1>🔓 PDF Unlocker</h1>
+      <span class="badge">Allt sker lokalt</span>
     </header>
 
     <div class="card">
-      <label>Steg 1 · Välj lösenordsskyddad PDF</label>
+      <label>Steg 1 &middot; Välj lösenordsskyddad PDF</label>
       <input id="file" type="file" accept="application/pdf" />
-      <div class="muted">Filen stannar lokalt i webbläsaren.</div>
+      <div class="muted">Filen lämnar aldrig din dator.</div>
 
-      <label style="margin-top:12px">Steg 2 · Ange lösenord</label>
-      <input id="pwd" type="password" placeholder="Lösenord (lämna tomt om endast ägarskydd)" />
+      <label style="margin-top:12px">Steg 2 &middot; Ange lösenord</label>
+      <input id="pwd" type="password" placeholder="Lämna tomt om inget lösenord krävs för att öppna" />
 
       <label style="margin-top:12px">Filnamn på utdata</label>
-      <input id="outName" type="text" placeholder="minfil-unlocked.pdf" />
+      <input id="outName" type="text" placeholder="min-fil-unlocked.pdf" />
 
       <div style="margin-top:14px">
-        <button id="go">Lås upp och spara okrypterad PDF</button>
+        <button id="go">Lås upp och spara PDF</button>
       </div>
 
       <div class="progress" style="margin-top:14px"><div id="bar" class="bar"></div></div>
       <div id="status" class="log" style="display:none"></div>
-      <div class="muted" style="margin-top:8px">OBS: Du behöver känna till lösenordet. Respektera lagar/licenser.</div>
+      <div class="muted" style="margin-top:8px">OBS: Du behöver känna till lösenordet. Respektera upphovsrätt.</div>
     </div>
   </div>
 
   <script type="module">
-    // ✅ ESM-fork med inbäddad .wasm → funkar i ren HTML, ingen bundler behövs.
-    // Du kan använda endera CDN-länken här nedan:
-    // jsDelivr:
+    // Importerar en ESM-version av qpdf-wasm där .wasm-filen är inbäddad.
+    // Detta gör att vi slipper hantera flera filer.
     import QPDF from "https://cdn.jsdelivr.net/npm/qpdf-wasm-esm-embedded@1.1.1/+esm";
-    // Alternativ (esm.sh):
-    // import QPDF from "https://esm.sh/qpdf-wasm-esm-embedded@1.1.1";
 
     const $ = (id) => document.getElementById(id);
     const fileEl = $('file'), pwdEl = $('pwd'), outEl = $('outName'), goEl = $('go');
@@ -70,13 +69,18 @@
     }
     function saveBlob(name, data){
       const url = URL.createObjectURL(new Blob([data], {type:'application/pdf'}));
-      const a = document.createElement('a'); a.href = url; a.download = name; a.click();
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a); // Nödvändigt för Firefox
+      a.click();
+      document.body.removeChild(a);
       setTimeout(()=>URL.revokeObjectURL(url), 4000);
     }
     function humanError(e){
       const s = (e && (e.message || String(e))) || 'Okänt fel.';
       if(/password/i.test(s) && /(wrong|invalid|incorrect)/i.test(s)) return 'Fel lösenord – försök igen.';
-      if(/encrypted/i.test(s) && /no password/i.test(s)) return 'Filen kräver lösenord.';
+      if(/encrypted/i.test(s) && /no password/i.test(s)) return 'Filen kräver ett lösenord för att öppnas.';
       return s;
     }
     function suggestOutName(){
@@ -93,35 +97,34 @@
 
       goEl.disabled = true; status.style.display = 'block'; status.textContent = '';
       try{
-        setProgress(5,'Läser in fil…');
+        setProgress(5,'Läser in fil...');
         const inBytes = new Uint8Array(await f.arrayBuffer());
 
-        setProgress(20,'Initierar QPDF (WASM)…');
-        // ESM-forkens default-export är init-funktionen (namngiven "QPDF" i README).
-        const qpdf = await QPDF();  // wasm är redan inbäddat – ingen locateFile behövs. :contentReference[oaicite:2]{index=2}
+        setProgress(20,'Initierar QPDF (WASM)...');
+        const qpdf = await QPDF();
 
-        // Jobba med Emscripten-FS (skriv → kör → läs). Exemplen i original-repo visar samma mönster. :contentReference[oaicite:3]{index=3}
         const IN = "/in.pdf", OUT = "/out.pdf";
         try { if(qpdf.FS.analyzePath(IN).exists) qpdf.FS.unlink(IN); } catch{}
         try { if(qpdf.FS.analyzePath(OUT).exists) qpdf.FS.unlink(OUT); } catch{}
 
-        setProgress(35,'Skriver indata…');
+        setProgress(35,'Skriver indata till virtuellt filsystem...');
         qpdf.FS.writeFile(IN, inBytes);
 
-        setProgress(60,'Dekrypterar…');
+        setProgress(60,'Dekrypterar...');
         const args = pwd
           ? [`--password=${pwd}`, '--decrypt', IN, OUT]
-          : ['--decrypt', IN, OUT]; // ägarskydd: inget lösenord
+          : ['--decrypt', IN, OUT]; // Hanterar filer med endast ägarlösenord
 
-        qpdf.callMain(args); // kastar vid fel (t.ex. fel lösenord)
+        qpdf.callMain(args); // Kastar ett fel om lösenordet är fel
 
-        setProgress(80,'Läser resultat…');
+        setProgress(80,'Läser resultat...');
         const outBytes = qpdf.FS.readFile(OUT);
 
-        setProgress(95,'Sparar fil…');
+        setProgress(95,'Sparar fil...');
         saveBlob(outName, outBytes);
         setProgress(100,'Klar! Sparade okrypterad PDF.');
       }catch(err){
+        setProgress(0, ''); // Nollställ progressbaren vid fel
         status.textContent = '❌ ' + humanError(err);
       }finally{
         goEl.disabled = false;
@@ -133,4 +136,3 @@
   </script>
 </body>
 </html>
-
