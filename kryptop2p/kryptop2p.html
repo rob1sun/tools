@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E2E-krypterad Fildelning via WebRTC</title>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; color: #1c1e21; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        main { background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); width: 100%; max-width: 800px; padding: 2rem; }
+        h1, h2 { border-bottom: 1px solid #dddfe2; padding-bottom: 10px; margin-top: 0; }
+        h1 { color: #0056b3; } h2 { margin-top: 2rem; color: #333; }
+        .section { margin-bottom: 2rem; }
+        label { display: block; font-weight: 600; margin-bottom: 8px; }
+        input[type="password"], input[type="text"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 1rem; }
+        button { color: white; border: none; padding: 12px 20px; border-radius: 5px; cursor: pointer; font-size: 1rem; font-weight: 500; transition: background-color 0.2s; }
+        button:hover { opacity: 0.9; }
+        button:disabled { background-color: #a0c7ef; cursor: not-allowed; }
+        .btn-primary { background-color: #007bff; }
+        .btn-secondary { background-color: #6c757d; }
+        .btn-danger { background-color: #dc3545; }
+        .drop-zone { border: 2px dashed #ccc; border-radius: 8px; padding: 25px; text-align: center; color: #6c757d; cursor: pointer; transition: background-color 0.2s, border-color 0.2s; margin-top: 1rem; }
+        .drop-zone.dragover { border-color: #007bff; background-color: #f0f8ff; }
+        .drop-zone input[type="file"] { display: none; }
+        .status { margin-top: 15px; padding: 10px; border-radius: 5px; text-align: center; font-weight: 500; }
+        .status.success { background-color: #d4edda; color: #155724; }
+        .status.error { background-color: #f8d7da; color: #721c24; }
+        .status.info { background-color: #cce5ff; color: #004085; }
+        #my-id-container { display: flex; justify-content: space-between; align-items: center; background-color: #e7f3ff; border-radius: 6px; padding: 10px 15px; word-break: break-all; }
+        #chat-log { height: 200px; border: 1px solid #dddfe2; border-radius: 6px; padding: 10px; margin-bottom: 10px; overflow-y: scroll; background-color: #f7f7f7; }
+        .message { padding: 8px 12px; border-radius: 18px; margin-bottom: 8px; max-width: 80%; word-wrap: break-word; }
+        .message.sent { background-color: #0084ff; color: white; margin-left: auto; text-align: right; }
+        .message.received { background-color: #e4e6eb; color: #050505; margin-right: auto; text-align: left; }
+        .message.system { background-color: #fffbe6; color: #9c6f00; text-align: center; max-width: 100%; font-style: italic; font-size: 0.9em; }
+        .message.system button { font-size: 0.8em; padding: 5px 10px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Säker Fildelning med End-to-End-kryptering</h1>
+
+        <!-- Sektion för att skapa nycklar (visas bara första gången) -->
+        <div id="key-management-section" class="section">
+            <h2>Kom igång: Skapa dina krypteringsnycklar</h2>
+            <p>Välj ett starkt lösenord. Detta lösenord används för att skydda din privata nyckel som sparas säkert i din webbläsare.</p>
+            <label for="key-password">Välj ett huvudlösenord:</label>
+            <input type="password" id="key-password" placeholder="Minst 12 tecken rekommenderas">
+            <button id="generate-keys-btn" class="btn-primary">Generera & Spara Nycklar</button>
+        </div>
+
+        <!-- Huvudapplikationen (visas när nycklar finns) -->
+        <div id="main-app-section" class="section" style="display: none;">
+            <div id="my-id-container">
+                <span>Ditt Peer ID: <strong id="my-id">Laddar...</strong></span>
+                <button id="copy-id-btn" class="btn-secondary" style="padding: 5px 10px; font-size: 0.8rem;">Kopiera</button>
+            </div>
+            <button id="show-key-mgmt-btn" style="font-size: 0.8rem; padding: 5px 10px; margin-top: 10px;" class="btn-danger">Glöm nycklar & börja om</button>
+
+            <h2>1. Anslut till en annan användare</h2>
+            <div style="display: flex; gap: 10px;">
+                <input type="text" id="peer-id-input" placeholder="Klistra in den andra användarens Peer ID">
+                <button id="connect-btn" class="btn-primary">Anslut</button>
+            </div>
+            <div id="status" class="status info">Status: Väntar på anslutning...</div>
+
+            <h2>2. Chatta & Överför Filer</h2>
+            <div id="chat-log"></div>
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <input type="text" id="message-input" placeholder="Skriv ett meddelande..." disabled>
+                <button id="send-btn" class="btn-secondary" disabled>Skicka</button>
+            </div>
+            <div id="file-drop-zone" class="drop-zone">
+                <p>Dra och släpp en fil här för att skicka den krypterad</p>
+                <input type="file" id="file-input">
+            </div>
+
+            <h2>3. Lokal Dekryptering</h2>
+            <p>Dekryptera en fil du har sparat på din dator, utan att vara ansluten till någon.</p>
+            <label for="local-decrypt-file">Välj en krypterad fil:</label>
+            <input type="file" id="local-decrypt-file">
+            <label for="local-decrypt-password" style="margin-top: 10px;">Ange ditt huvudlösenord:</label>
+            <input type="password" id="local-decrypt-password">
+            <button id="local-decrypt-btn" class="btn-primary">Dekryptera & Ladda Ner</button>
+        </div>
+    </main>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- DOM-ELEMENT ---
+        const keyMgmtSection = document.getElementById('key-management-section');
+        const mainAppSection = document.getElementById('main-app-section');
+        const keyPasswordInput = document.getElementById('key-password');
+        const generateKeysBtn = document.getElementById('generate-keys-btn');
+        const showKeyMgmtBtn = document.getElementById('show-key-mgmt-btn');
+        const myIdSpan = document.getElementById('my-id');
+        const copyIdBtn = document.getElementById('copy-id-btn');
+        const peerIdInput = document.getElementById('peer-id-input');
+        const connectBtn = document.getElementById('connect-btn');
+        const statusDiv = document.getElementById('status');
+        const chatLog = document.getElementById('chat-log');
+        const messageInput = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-btn');
+        const fileDropZone = document.getElementById('file-drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const localDecryptFileInput = document.getElementById('local-decrypt-file');
+        const localDecryptPasswordInput = document.getElementById('local-decrypt-password');
+        const localDecryptBtn = document.getElementById('local-decrypt-btn');
+
+        // --- KRYPTO- & PEER-KONSTANTER ---
+        const ENCRYPTED_KEY_SIZE = 256;
+        const IV_SIZE = 12;
+        const SALT_SIZE = 16;
+        const PBKDF2_ITERATIONS = 100000;
+        
+        // --- APPLIKATIONENS TILLSTÅND (STATE) ---
+        let peer = null, dataConn = null;
+        let myKeys = { publicKey: null, encryptedPrivateKey: null };
+        let peerPublicKey = null;
+        let receivedFiles = new Map();
+
+        // --- DATABASHANTERING (IndexedDB) ---
+        const DB_NAME = 'E2EE_KeyStorage';
+        const STORE_NAME = 'UserKeys';
+        let db;
+
+        function openDb() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, 1);
+                request.onerror = () => reject("Databas kunde inte öppnas.");
+                request.onsuccess = () => { db = request.result; resolve(); };
+                request.onupgradeneeded = e => e.target.result.createObjectStore(STORE_NAME, { keyPath: 'id' });
+            });
+        }
+
+        function getKeysFromDb() {
+            return new Promise(resolve => {
+                if (!db) return resolve(null);
+                const tx = db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME);
+                const req = tx.get('userKeyPair');
+                req.onsuccess = () => resolve(req.result ? req.result.keys : null);
+                req.onerror = () => resolve(null);
+            });
+        }
+
+        function saveKeysToDb(keys) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, 'readwrite').objectStore(STORE_NAME);
+                tx.put({ id: 'userKeyPair', keys: keys }).onsuccess = resolve;
+                tx.onerror = () => reject("Kunde inte spara nycklar.");
+            });
+        }
+
+        function deleteKeysFromDb() {
+            return new Promise(resolve => {
+                db.transaction(STORE_NAME, 'readwrite').objectStore(STORE_NAME).delete('userKeyPair').onsuccess = resolve;
+            });
+        }
+
+        // --- UI- OCH HJÄLPFUNKTIONER ---
+        const showStatus = (m,t='info') => { statusDiv.textContent=`Status: ${m}`; statusDiv.className=`status status-${t}`; statusDiv.style.display='block'; };
+        function triggerDownload(b, f) { const u=URL.createObjectURL(b);const a=document.createElement('a');a.style.display='none';a.href=u;a.download=f;document.body.appendChild(a);a.click();URL.revokeObjectURL(u);a.remove(); }
+        
+        function addMessage(text, type) {
+            const el = document.createElement('div');
+            el.className = `message ${type}`;
+            el.textContent = text;
+            chatLog.appendChild(el);
+            chatLog.scrollTop = chatLog.scrollHeight;
+        }
+
+        function addSystemMessage(htmlContent) {
+            const el = document.createElement('div');
+            el.className = 'message system';
+            el.innerHTML = htmlContent;
+            chatLog.appendChild(el);
+            chatLog.scrollTop = chatLog.scrollHeight;
+        }
+
+        function updateUiState(hasKeys) {
+            if(hasKeys) {
+                keyMgmtSection.style.display = 'none';
+                mainAppSection.style.display = 'block';
+                initializePeer();
+            } else {
+                keyMgmtSection.style.display = 'block';
+                mainAppSection.style.display = 'none';
+            }
+        }
+
+        // --- KRYPTERINGSFUNKTIONER ---
+        async function createAndSaveKeys() {
+            const password = keyPasswordInput.value;
+            if (password.length < 8) return alert('Lösenordet måste vara minst 8 tecken.');
+            
+            try {
+                // 1. Generera RSA-nyckelpar
+                const keyPair = await crypto.subtle.generateKey({ name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['encrypt', 'decrypt']);
+                const publicKeyJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
+                const privateKeyJwk = await crypto.subtle.exportKey('jwk', keyPair.privateKey);
+
+                // 2. Kryptera den privata nyckeln med lösenordet
+                const salt = crypto.getRandomValues(new Uint8Array(SALT_SIZE));
+                const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), { name: 'PBKDF2' }, false, ['deriveKey']);
+                const aesKey = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' }, keyMaterial, { name: 'AES-GCM', length: 256 }, true, ['encrypt']);
+                const iv = crypto.getRandomValues(new Uint8Array(IV_SIZE));
+                const encryptedPrivateKeyData = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, aesKey, new TextEncoder().encode(JSON.stringify(privateKeyJwk)));
+                
+                myKeys = {
+                    publicKey: publicKeyJwk,
+                    encryptedPrivateKey: new Blob([salt, iv, new Uint8Array(encryptedPrivateKeyData)])
+                };
+                
+                await saveKeysToDb(myKeys);
+                updateUiState(true);
+            } catch (error) {
+                alert(`Kunde inte skapa nycklar: ${error.message}`);
+            }
+        }
+
+        async function decryptPrivateKey(password, encryptedKeyBlob) {
+            const buffer = await encryptedKeyBlob.arrayBuffer();
+            const salt = buffer.slice(0, SALT_SIZE);
+            const iv = buffer.slice(SALT_SIZE, SALT_SIZE + IV_SIZE);
+            const data = buffer.slice(SALT_SIZE + IV_SIZE);
+            const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), { name: 'PBKDF2' }, false, ['deriveKey']);
+            const aesKey = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' }, keyMaterial, { name: 'AES-GCM', length: 256 }, true, ['decrypt']);
+            const decryptedBytes = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, aesKey, data);
+            const privateKeyJwk = JSON.parse(new TextDecoder().decode(decryptedBytes));
+            return await crypto.subtle.importKey('jwk', privateKeyJwk, { name: 'RSA-OAEP', hash: 'SHA-256' }, true, ['decrypt']);
+        }
+
+        async function encryptFile(file, publicKey) {
+            const rsaPublicKey = await crypto.subtle.importKey('jwk', publicKey, { name: 'RSA-OAEP', hash: 'SHA-256' }, true, ['encrypt']);
+            const aesKey = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt']);
+            const exportedAesKey = await crypto.subtle.exportKey('raw', aesKey);
+            const encryptedAesKey = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, rsaPublicKey, exportedAesKey);
+            const iv = crypto.getRandomValues(new Uint8Array(IV_SIZE));
+            const fileBuffer = await file.arrayBuffer();
+            const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, aesKey, fileBuffer);
+            return new Blob([encryptedAesKey, iv, ciphertext]);
+        }
+
+        async function decryptFile(encryptedBlob, password) {
+            const privateKey = await decryptPrivateKey(password, myKeys.encryptedPrivateKey);
+            const buffer = await encryptedBlob.arrayBuffer();
+            const encryptedAesKey = buffer.slice(0, ENCRYPTED_KEY_SIZE);
+            const iv = buffer.slice(ENCRYPTED_KEY_SIZE, ENCRYPTED_KEY_SIZE + IV_SIZE);
+            const ciphertext = buffer.slice(ENCRYPTED_KEY_SIZE + IV_SIZE);
+            const decryptedAesKeyBytes = await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, privateKey, encryptedAesKey);
+            const aesKey = await crypto.subtle.importKey('raw', decryptedAesKeyBytes, { name: 'AES-GCM' }, true, ['decrypt']);
+            const decryptedBuffer = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, aesKey, ciphertext);
+            return new Blob([decryptedBuffer]);
+        }
+
+        // --- PEERJS-LOGIK ---
+        function initializePeer() {
+            if (peer) peer.destroy();
+            peer = new Peer();
+            peer.on('open', id => myIdSpan.textContent = id);
+            peer.on('connection', conn => setupDataConnection(conn));
+            peer.on('error', err => showStatus(`PeerJS-fel: ${err.type}`, 'error'));
+        }
+
+        function connectToPeer() {
+            const remoteId = peerIdInput.value.trim();
+            if (!remoteId) return;
+            setupDataConnection(peer.connect(remoteId));
+        }
+
+        function setupDataConnection(connection) {
+            dataConn = connection;
+            dataConn.on('open', () => {
+                showStatus(`Ansluten till ${dataConn.peer}`, 'success');
+                messageInput.disabled = false; sendBtn.disabled = false;
+                // Skicka vår publika nyckel direkt vid anslutning
+                dataConn.send({ type: 'publicKey', key: myKeys.publicKey });
+                addSystemMessage('Skickade publik nyckel.');
+            });
+
+            dataConn.on('data', data => {
+                switch(data.type) {
+                    case 'publicKey':
+                        peerPublicKey = data.key;
+                        addSystemMessage(`Mottog publik nyckel från ${dataConn.peer}.`);
+                        break;
+                    case 'chat':
+                        addMessage(data.message, 'received');
+                        break;
+                    case 'file':
+                        const blob = new Blob([data.fileData]);
+                        receivedFiles.set(data.fileName, blob);
+                        const fileHtml = `Mottog fil: <strong>${data.fileName}</strong>
+                            <button class="btn-secondary" onclick="window.handleFileAction('${data.fileName}', 'download')">Ladda ner krypterad</button>
+                            <button class="btn-primary" onclick="window.handleFileAction('${data.fileName}', 'decrypt')">Dekryptera & Ladda ner</button>`;
+                        addSystemMessage(fileHtml);
+                        break;
+                }
+            });
+
+            dataConn.on('close', () => {
+                showStatus('Anslutningen bruten.', 'error');
+                messageInput.disabled = true; sendBtn.disabled = true;
+                peerPublicKey = null; dataConn = null;
+            });
+        }
+
+        // --- GLOBALA FUNKTIONER FÖR KNAPPAR I CHATTEN ---
+        window.handleFileAction = async (fileName, action) => {
+            const fileBlob = receivedFiles.get(fileName);
+            if (!fileBlob) return alert('Filen hittades inte.');
+
+            if (action === 'download') {
+                triggerDownload(fileBlob, `krypterad-${fileName}`);
+            } else if (action === 'decrypt') {
+                const password = prompt(`Ange ditt huvudlösenord för att dekryptera "${fileName}":`);
+                if (!password) return;
+                try {
+                    const decryptedBlob = await decryptFile(fileBlob, password);
+                    triggerDownload(decryptedBlob, fileName);
+                } catch (e) {
+                    alert(`Dekryptering misslyckades. Kontrollera lösenordet. Fel: ${e.message}`);
+                }
+            }
+        };
+
+        // --- EVENT LISTENERS ---
+        generateKeysBtn.addEventListener('click', createAndSaveKeys);
+        showKeyMgmtBtn.addEventListener('click', async () => {
+            if (confirm("Är du säker? Detta raderar dina nuvarande nycklar permanent.")) {
+                await deleteKeysFromDb();
+                myKeys = { publicKey: null, encryptedPrivateKey: null };
+                if (peer) peer.destroy();
+                updateUiState(false);
+            }
+        });
+        connectBtn.addEventListener('click', connectToPeer);
+        copyIdBtn.addEventListener('click', () => navigator.clipboard.writeText(myIdSpan.textContent));
+        sendBtn.addEventListener('click', () => {
+            const msg = messageInput.value;
+            if (msg && dataConn) {
+                dataConn.send({ type: 'chat', message: msg });
+                addMessage(msg, 'sent');
+                messageInput.value = '';
+            }
+        });
+        
+        async function handleFileSend(file) {
+            if (!file) return;
+            if (!dataConn || !peerPublicKey) return addSystemMessage('Du måste vara ansluten till en mottagare som har delat sin publika nyckel innan du kan skicka en fil.');
+            
+            addSystemMessage(`Krypterar och skickar ${file.name}...`);
+            try {
+                const encryptedBlob = await encryptFile(file, peerPublicKey);
+                const encryptedBuffer = await encryptedBlob.arrayBuffer();
+                dataConn.send({ type: 'file', fileName: file.name, fileData: encryptedBuffer });
+            } catch (e) {
+                addSystemMessage(`Fel vid filkryptering: ${e.message}`);
+            }
+        }
+        
+        fileDropZone.addEventListener('dragover', e => e.preventDefault());
+        fileDropZone.addEventListener('drop', e => {
+            e.preventDefault();
+            if (e.dataTransfer.files.length > 0) handleFileSend(e.dataTransfer.files[0]);
+        });
+        fileInput.addEventListener('change', e => {
+            if (e.target.files.length > 0) handleFileSend(e.target.files[0]);
+        });
+
+        localDecryptBtn.addEventListener('click', async () => {
+            const file = localDecryptFileInput.files[0];
+            const password = localDecryptPasswordInput.value;
+            if (!file || !password) return alert('Välj en fil och ange ditt lösenord.');
+            try {
+                const decryptedBlob = await decryptFile(file, password);
+                triggerDownload(decryptedBlob, file.name.replace(/^krypterad-/, ''));
+            } catch (e) {
+                alert(`Lokal dekryptering misslyckades: ${e.message}`);
+            }
+        });
+
+        // --- INITIERING VID SIDLADDNING ---
+        (async () => {
+            await openDb();
+            const keys = await getKeysFromDb();
+            if (keys) {
+                myKeys = keys;
+                updateUiState(true);
+            } else {
+                updateUiState(false);
+            }
+        })();
+    });
+    </script>
+</body>
+</html>
