@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>7-Zip filuppackare</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 2rem;
+            background-color: #f4f7f6;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px;
+        }
+        h1 {
+            color: #1a73e8;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 0.5rem;
+            margin-top: 0;
+        }
+        .file-input-wrapper {
+            margin: 1.5rem 0;
+        }
+        input[type="file"], input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            margin-top: 0.5rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        label {
+            font-weight: bold;
+            display: block;
+        }
+        button {
+            background-color: #1a73e8;
+            color: white;
+            padding: 14px 20px;
+            margin: 1rem 0;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 1rem;
+        }
+        button:hover {
+            background-color: #1558b3;
+        }
+        #file-list {
+            list-style-type: none;
+            padding: 0;
+            margin-top: 1.5rem;
+        }
+        #file-list li {
+            background-color: #e8f0fe;
+            border-left: 5px solid #1a73e8;
+            padding: 10px;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #file-list a {
+            text-decoration: none;
+            color: #1a73e8;
+            font-weight: bold;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #1a73e8;
+            animation: spin 1s ease infinite;
+            display: none; /* Dold som standard */
+            margin: 1rem auto;
+        }
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+        .status {
+            margin-top: 1rem;
+            font-style: italic;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Ladda upp och packa upp 7-Zip-fil</h1>
+        <div class="file-input-wrapper">
+            <label for="seven-zip-file">Välj en lösenordsskyddad .7z-fil:</label>
+            <input type="file" id="seven-zip-file" accept=".7z">
+        </div>
+        <div class="file-input-wrapper">
+            <label for="password">Ange lösenord:</label>
+            <input type="password" id="password" placeholder="Lösenord för arkivet">
+        </div>
+        <button onclick="extractFiles()">Packa upp filer</button>
+        <div class="spinner" id="spinner"></div>
+        <div class="status" id="status"></div>
+        <h2>Resultat:</h2>
+        <ul id="file-list"></ul>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/js7z@24.9.0/dist/js7z.min.js"></script>
+    <script>
+        async function extractFiles() {
+            const fileInput = document.getElementById('seven-zip-file');
+            const passwordInput = document.getElementById('password');
+            const fileList = document.getElementById('file-list');
+            const status = document.getElementById('status');
+            const spinner = document.getElementById('spinner');
+
+            if (fileInput.files.length === 0) {
+                status.textContent = 'Vänligen välj en fil först.';
+                return;
+            }
+
+            fileList.innerHTML = '';
+            status.textContent = '';
+            spinner.style.display = 'block';
+
+            const file = fileInput.files[0];
+            const password = passwordInput.value;
+
+            try {
+                const js7z = await JS7z();
+                const arrayBuffer = await file.arrayBuffer();
+                const uint8Array = new Uint8Array(arrayBuffer);
+
+                status.textContent = 'Läser och bearbetar arkivet... Detta kan ta en stund för stora filer.';
+
+                const result = js7z.callMain(['x', file.name, '-p' + password, '-o' + 'output'], [{
+                    name: file.name,
+                    data: uint8Array
+                }]);
+
+                if (result.error) {
+                    throw new Error(result.error);
+                }
+                
+                if (result.stdout.includes("ERROR: Wrong password")) {
+                    throw new Error("Fel lösenord angivet.");
+                }
+
+                if (result.files && result.files.length > 0) {
+                    status.textContent = `Hittade ${result.files.length} fil(er) i arkivet.`;
+                    result.files.forEach(extractedFile => {
+                        if (extractedFile.data) { // Kontrollera att det är en fil och inte en katalog
+                            const li = document.createElement('li');
+                            const a = document.createElement('a');
+                            const blob = new Blob([extractedFile.data]);
+                            const url = URL.createObjectURL(blob);
+                            a.href = url;
+                            a.download = extractedFile.name.split('/').pop();
+                            a.textContent = a.download;
+                            li.appendChild(a);
+                            fileList.appendChild(li);
+                        }
+                    });
+                } else {
+                     status.textContent = 'Inga filer hittades i arkivet eller så var det ett problem vid uppackningen. Kontrollera lösenordet och filen.';
+                }
+
+            } catch (error) {
+                console.error('Ett fel uppstod:', error);
+                status.textContent = 'Ett fel inträffade: ' + error.message;
+            } finally {
+                spinner.style.display = 'none';
+            }
+        }
+    </script>
+
+</body>
+</html>
