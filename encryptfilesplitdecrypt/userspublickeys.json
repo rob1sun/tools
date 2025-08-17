@@ -1,16 +1,18 @@
 [
   {
-    "firstName": "Anna",
-    "lastName": "Andersson",
-    "email": "anna.andersson@organisation.se",
+    "firstName": "Testor",
+    "lastName": "Testorsson",
+    "email": "testor.testorsson@organisation.se",
     "publicKey": {
-      "key_ops": ["encrypt"],
-      "ext": true,
-      "kty": "RSA",
-      "n": "w_Ab-i-UaZ_V8K_kYv2Xy_1aBc_dEf_gHi_jKl_mNo_pQr_sTu_vWx_yZ-1_2a_3b_4c...",
-      "e": "AQAB",
-      "alg": "RSA-OAEP-256"
-    }
+  "alg": "RSA-OAEP-256",
+  "e": "AQAB",
+  "ext": true,
+  "key_ops": [
+    "encrypt"
+  ],
+  "kty": "RSA",
+  "n": "7w4qZQF1jTnke_DsAlF0FaMv3g8sBYImXP1H_bUB08sFHyIStC8BWl-m1VyS00bLvZHKtf1BcBsmbEKzikqu073DE3x3Ky8zpJKFaqpJypz5e45eQrT1x6KeR1amwnui36XAIQ-g1sQx0v58MkNInvWqwPtr9ICVj1iTa52Yocr3uczWG2loMg3gVUtwt6J8Cq3pG_qk6GST5ZXshreAXL7i7dWOVZoPUPn-8I7GjhwjnfyZoyNGRgSLYyn1s8NQc96nSJWr7lMspFmoJgyj_hoWLMKyA7FkFK2ZGLeIBIxVdhhdDGYZSyLxESwXflFmoD7CHcQ8dhSsJFIT2MZsXQ"
+}
   },
   {
     "firstName": "Erik",
