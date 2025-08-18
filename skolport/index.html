@@ -57,6 +57,13 @@
     .idp-item:focus{outline:2px solid var(--accent);outline-offset:2px}
     .idp-thumb{width:36px;height:36px;border-radius:8px;object-fit:contain;background:#fff;display:block}
     .idp-name{font-weight:600}
+      /* IDP-väljare + sök + vald chip */
+    .chosen{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .chosen .muted{font-size:.9rem}
+    .idp-toolbar{margin-top:8px;display:flex;gap:8px;align-items:center}
+    #idp-search{flex:1;min-width:220px;padding:8px 10px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:#0f141c;color:var(--text)}
+    .idp-item.selected{outline:2px solid var(--accent)}
+    .idp-check{margin-left:auto;color:var(--accent);font-weight:700}
   </style>
 </head>
 <body>
@@ -76,7 +83,7 @@
   </main>
 
   <template id="card-template">
-    <a class="card" href="#" target="_self" rel="noopener" role="button">
+    <a class="card" href="#" target="_blank" rel="noopener noreferrer" role="button">
       <div class="media"><img alt="" loading="lazy" /></div>
       <div class="content">
         <div class="title"></div>
@@ -112,6 +119,41 @@
   }
 
   let selectedIdp = null; // { idpEntityId, idpDisplayName, idpImg }
+  let idpItems = [];
+  let idpSearchEl = null;
+  function createToolbarIfNeeded() {
+    if (idpSearchEl) return;
+    const statusEl = document.getElementById('idp-status');
+    if (!statusEl) return;
+    const toolbar = document.createElement('div');
+    toolbar.className = 'idp-toolbar';
+    const input = document.createElement('input');
+    input.type = 'search';
+    input.id = 'idp-search';
+    input.placeholder = 'Sök IDP…';
+    toolbar.appendChild(input);
+    statusEl.insertAdjacentElement('afterend', toolbar);
+    idpSearchEl = input;
+    idpSearchEl.addEventListener('input', () => renderIdpList(idpItems));
+  }
+  function ensureChosenHeader() {
+    if (document.getElementById('chosen-idp')) return;
+    const header = document.querySelector('header');
+    const reloadBtn = document.getElementById('reload');
+    const chosen = document.createElement('div');
+    chosen.id = 'chosen-idp';
+    chosen.className = 'chosen';
+    chosen.hidden = true;
+    chosen.innerHTML = '<span class="muted">Vald IDP:</span> <strong id="chosen-name"></strong> <span aria-hidden="true">✓</span> <button id="change-idp" class="btn" type="button">Byt IDP</button>';
+    header.insertBefore(chosen, reloadBtn);
+    document.getElementById('change-idp').addEventListener('click', () => {
+      document.getElementById('idp-panel').style.display = '';
+      document.getElementById('cards').hidden = true;
+      document.getElementById('status').hidden = true;
+      if (idpSearchEl) idpSearchEl.value = '';
+      renderIdpList(idpItems);
+    });
+  }
 
   // === IDP-väljare ===
   async function loadIdps() {
@@ -123,10 +165,11 @@
       const res = await fetch(IDP_URL, { cache: 'no-store' });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const payload = await res.json();
-      const items = normalizeItems(payload);
+      idpItems = normalizeItems(payload);
       if (!items.length) { statusEl.textContent = 'Hittade inga IDP:er.'; return; }
       statusEl.textContent = 'Välj en IDP:';
-      renderIdpList(items);
+      createToolbarIfNeeded();
+      renderIdpList(idpItems);
     } catch (err) {
       console.error(err);
       statusEl.textContent = 'Kunde inte läsa in IDP-listan.';
@@ -138,8 +181,15 @@
     listEl.setAttribute('aria-busy', 'false');
     listEl.innerHTML = '';
 
+    let list = Array.isArray(items) ? items.slice() : [];
+    const q = (idpSearchEl && idpSearchEl.value ? idpSearchEl.value : '').toLowerCase().trim();
+    if (q) list = list.filter(it => (it.idpDisplayName || '').toLowerCase().includes(q));
+    if (selectedIdp && selectedIdp.idpEntityId) {
+      list.sort((a,b) => (a.idpEntityId === selectedIdp.idpEntityId ? -1 : (b.idpEntityId === selectedIdp.idpEntityId ? 1 : 0)));
+    }
+
     const frag = document.createDocumentFragment();
-    for (const item of items) {
+    for (const item of list) {
       const li = document.createElement('li');
       li.className = 'idp-item';
       li.tabIndex = 0;
@@ -170,6 +220,32 @@
       li.appendChild(img);
       li.appendChild(name);
 
+      const isSel = selectedIdp && selectedIdp.idpEntityId && item.idpEntityId === selectedIdp.idpEntityId;
+      if (isSel) {
+        li.classList.add('selected');
+        const check = document.createElement('span');
+        check.className = 'idp-check';
+        check.textContent = '✓';
+        check.setAttribute('aria-hidden','true');
+        li.appendChild(check);
+      }
+
+      const choose = () => selectIdp(item);
+      li.addEventListener('click', choose);
+      li.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); choose(); } });
+
+      frag.appendChild(li);
+    }
+    listEl.appendChild(frag);
+  };
+
+      const name = document.createElement('div');
+      name.className = 'idp-name';
+      name.textContent = item.idpDisplayName || '(utan namn)';
+
+      li.appendChild(img);
+      li.appendChild(name);
+
       const choose = () => selectIdp(item);
       li.addEventListener('click', choose);
       li.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); choose(); } });
@@ -181,8 +257,11 @@
 
   function selectIdp(item) {
     selectedIdp = item || null;
-    $('#idp-panel').style.display = 'none';
-    $('#cards').hidden = false;
+    const chosen = document.getElementById('chosen-idp');
+    const chosenName = document.getElementById('chosen-name');
+    if (chosen && chosenName) { chosenName.textContent = item.idpDisplayName || '(utan namn)'; chosen.hidden = false; }
+    document.getElementById('idp-panel').style.display = 'none';
+    document.getElementById('cards').hidden = false;
     setStatus('Laddar data…', true);
     loadData();
   }
@@ -203,13 +282,18 @@
     const idpPart = selectedIdp ? (selectedIdp.idpEntityId || '') : '';
 
     node.href = '' + base + idpPart + target; // spLink + idpEntityId + spTarget
+    node.target = '_blank';
+    node.rel = 'noopener noreferrer';
     node.setAttribute('aria-label', 'Öppna: ' + displayName);
 
     titleEl.textContent = displayName;
 
-    if (item.description) {
-      descEl.textContent = item.description;
-    } else {
+    if (item.description) { descEl.textContent = item.description; } else { descEl.remove(); }
+
+    if (img) { imgEl.src = img; imgEl.alt = displayName; } else { node.querySelector('.media').remove(); }
+
+    return node;
+  } else {
       descEl.remove();
     }
 
@@ -253,7 +337,7 @@
     }
   }
 
-  document.addEventListener('DOMContentLoaded', () => { loadIdps(); });
+  document.addEventListener('DOMContentLoaded', () => { ensureChosenHeader(); createToolbarIfNeeded(); loadIdps(); }); });
   document.getElementById('reload').addEventListener('click', () => {
     if (!selectedIdp) {
       $('#idp-panel').style.display = '';
