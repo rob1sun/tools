@@ -64,6 +64,7 @@
     #idp-search{flex:1;min-width:220px;padding:8px 10px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:#0f141c;color:var(--text)}
     .idp-item.selected{outline:2px solid var(--accent)}
     .idp-check{margin-left:auto;color:var(--accent);font-weight:700}
+      .chosen-logo{width:20px;height:20px;border-radius:4px;object-fit:contain;background:#fff;box-shadow:var(--shadow)}
   </style>
 </head>
 <body>
@@ -121,6 +122,10 @@
   let selectedIdp = null; // { idpEntityId, idpDisplayName, idpImg }
   let idpItems = [];
   let idpSearchEl = null;
+  const STORAGE_KEY = 'splink.selectedIdp';
+  function saveSelectedIdp(item){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify({ idpEntityId: item?.idpEntityId || '', idpDisplayName: item?.idpDisplayName || '', idpImg: item?.idpImg || '' })); }catch(e){} }
+  function getSavedIdp(){ try{ const v = localStorage.getItem(STORAGE_KEY); return v ? JSON.parse(v) : null; }catch(e){ return null; } }
+
 
   function createToolbarIfNeeded() {
     if (idpSearchEl) return;
@@ -146,7 +151,7 @@
     chosen.id = 'chosen-idp';
     chosen.className = 'chosen';
     chosen.hidden = true;
-    chosen.innerHTML = '<span class="muted">Vald IDP:</span> <strong id="chosen-name"></strong> <span aria-hidden="true">✓</span> <button id="change-idp" class="btn" type="button">Byt IDP</button>';
+    chosen.innerHTML = '<img id="chosen-logo" class="chosen-logo" alt=""> <span class="muted">Vald IDP:</span> <strong id="chosen-name"></strong> <span aria-hidden="true">✓</span> <button id="change-idp" class="btn" type="button">Byt IDP</button>';
     header.insertBefore(chosen, reloadBtn);
     document.getElementById('change-idp').addEventListener('click', () => {
       document.getElementById('idp-panel').style.display = '';
@@ -155,6 +160,17 @@
       if (idpSearchEl) idpSearchEl.value = '';
       renderIdpList(idpItems);
     });
+  }
+  function updateChosenHeader(item){
+    const chosen = document.getElementById('chosen-idp');
+    const chosenName = document.getElementById('chosen-name');
+    const logoEl = document.getElementById('chosen-logo');
+    if (!chosen || !chosenName || !logoEl) return;
+    chosenName.textContent = item?.idpDisplayName || '(utan namn)';
+    const src = (item?.idpImg || '').trim();
+    if (src){ logoEl.src = src; logoEl.alt = item?.idpDisplayName || ''; logoEl.style.display = ''; }
+    else { logoEl.removeAttribute('src'); logoEl.alt = ''; logoEl.style.display = 'none'; }
+    chosen.hidden = false;
   }
 
   // === IDP-väljare ===
@@ -243,9 +259,8 @@
 
   function selectIdp(item) {
     selectedIdp = item || null;
-    const chosen = document.getElementById('chosen-idp');
-    const chosenName = document.getElementById('chosen-name');
-    if (chosen && chosenName) { chosenName.textContent = item.idpDisplayName || '(utan namn)'; chosen.hidden = false; }
+    updateChosenHeader(selectedIdp);
+    saveSelectedIdp(selectedIdp);
     document.getElementById('idp-panel').style.display = 'none';
     document.getElementById('cards').hidden = false;
     setStatus('Laddar data…', true);
@@ -320,7 +335,23 @@
     }
   }
 
-  document.addEventListener('DOMContentLoaded', () => { ensureChosenHeader(); createToolbarIfNeeded(); loadIdps(); });
+  document.addEventListener('DOMContentLoaded', () => {
+    ensureChosenHeader();
+    createToolbarIfNeeded();
+    const saved = getSavedIdp();
+    if (saved && saved.idpEntityId) {
+      selectedIdp = saved;
+      updateChosenHeader(saved);
+      document.getElementById('idp-panel').style.display = 'none';
+      document.getElementById('cards').hidden = false;
+      setStatus('Laddar data…', true);
+      loadData();
+      // Ladda lista i bakgrunden för "Byt IDP"
+      loadIdps();
+    } else {
+      loadIdps();
+    }
+  }); createToolbarIfNeeded(); loadIdps(); });
   document.getElementById('reload').addEventListener('click', () => {
     if (!selectedIdp) {
       document.getElementById('idp-panel').style.display = '';
