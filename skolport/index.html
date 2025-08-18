@@ -86,126 +86,184 @@
   </template>
 
   <script>
-    const DATA_URL = "https://fedfeeds.robertsundin.se/sp/json/splink.json";
-    const IDP_URL = "https://fedfeeds.robertsundin.se/idp/json/multiidp.json";
+  const DATA_URL = "https://fedfeeds.robertsundin.se/sp/json/splink.json";
+  const IDP_URL  = "https://fedfeeds.robertsundin.se/idp/json/multiidp.json";
 
-    const $ = s => document.querySelector(s);
-    function setStatus(msg, busy = false) {
-      const el = $("#status");
-      el.textContent = msg;
-      if (busy) { el.hidden = false; el.setAttribute('aria-busy', 'true'); } else { el.removeAttribute('aria-busy'); }
+  const $ = (s) => document.querySelector(s);
+  function setStatus(msg, busy = false) {
+    const el = $("#status");
+    el.textContent = msg;
+    if (busy) { el.hidden = false; el.setAttribute('aria-busy', 'true'); } else { el.removeAttribute('aria-busy'); }
+  }
+  function normalizeItems(payload, keys = { items: 'items', value: 'value' }) {
+    if (!payload) return [];
+    if (Array.isArray(payload)) return payload;
+    if (typeof payload === 'object') {
+      if (Array.isArray(payload[keys.items])) return payload[keys.items];
+      if (Array.isArray(payload[keys.value])) return payload[keys.value];
+      const values = Object.values(payload);
+      if (values.length && values.every(v => typeof v === 'object')) return values;
+    }
+    return [];
+  }
+  function initialsOf(name) {
+    if (!name) return "?";
+    return name.toString().trim().split(' ').filter(Boolean).slice(0,2).map(s => s[0]).join('').toUpperCase();
+  }
+
+  let selectedIdp = null; // { idpEntityId, idpDisplayName, idpImg }
+
+  // === IDP-väljare ===
+  async function loadIdps() {
+    const listEl = $('#idp-list');
+    const statusEl = $('#idp-status');
+    listEl.innerHTML = '';
+    statusEl.textContent = 'Laddar IDP-lista…';
+    try {
+      const res = await fetch(IDP_URL, { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const payload = await res.json();
+      const items = normalizeItems(payload);
+      if (!items.length) { statusEl.textContent = 'Hittade inga IDP:er.'; return; }
+      statusEl.textContent = 'Välj en IDP:';
+      renderIdpList(items);
+    } catch (err) {
+      console.error(err);
+      statusEl.textContent = 'Kunde inte läsa in IDP-listan.';
+    }
+  }
+
+  function renderIdpList(items) {
+    const listEl = $('#idp-list');
+    listEl.setAttribute('aria-busy', 'false');
+    listEl.innerHTML = '';
+
+    const frag = document.createDocumentFragment();
+    for (const item of items) {
+      const li = document.createElement('li');
+      li.className = 'idp-item';
+      li.tabIndex = 0;
+      li.role = 'button';
+      li.setAttribute('aria-label', 'Välj ' + (item.idpDisplayName || 'IDP'));
+
+      const img = document.createElement('img');
+      img.className = 'idp-thumb';
+      const src = (item.idpImg || '').trim();
+      if (src) img.src = src;
+      img.alt = item.idpDisplayName || '';
+      img.loading = 'lazy';
+      img.onerror = () => {
+        const fallback = document.createElement('div');
+        fallback.className = 'idp-thumb';
+        fallback.style.display = 'grid';
+        fallback.style.placeItems = 'center';
+        fallback.style.fontWeight = '700';
+        fallback.style.background = '#1f2937';
+        fallback.textContent = initialsOf(item.idpDisplayName);
+        img.replaceWith(fallback);
+      };
+
+      const name = document.createElement('div');
+      name.className = 'idp-name';
+      name.textContent = item.idpDisplayName || '(utan namn)';
+
+      li.appendChild(img);
+      li.appendChild(name);
+
+      const choose = () => selectIdp(item);
+      li.addEventListener('click', choose);
+      li.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); choose(); } });
+
+      frag.appendChild(li);
+    }
+    listEl.appendChild(frag);
+  }
+
+  function selectIdp(item) {
+    selectedIdp = item || null;
+    $('#idp-panel').style.display = 'none';
+    $('#cards').hidden = false;
+    setStatus('Laddar data…', true);
+    loadData();
+  }
+
+  // === Kort ===
+  function createCard(item) {
+    const tpl = document.getElementById('card-template');
+    const node = tpl.content.firstElementChild.cloneNode(true);
+
+    const titleEl = node.querySelector('.title');
+    const descEl = node.querySelector('.desc');
+    const imgEl = node.querySelector('img');
+
+    const displayName = item.spDisplayName ?? '(utan namn)';
+    const img = item.spImg || '';
+    const base = item.spLink || '';
+    const target = item.spTarget || '';
+    const idpPart = selectedIdp ? (selectedIdp.idpEntityId || '') : '';
+
+    node.href = '' + base + idpPart + target; // spLink + idpEntityId + spTarget
+    node.setAttribute('aria-label', 'Öppna: ' + displayName);
+
+    titleEl.textContent = displayName;
+
+    if (item.description) {
+      descEl.textContent = item.description;
+    } else {
+      descEl.remove();
     }
 
-    function normalizeItems(payload, keys = {items: 'items', value: 'value'}) {
-      if (!payload) return [];
-      if (Array.isArray(payload)) return payload;
-      if (typeof payload === 'object') {
-        if (Array.isArray(payload[keys.items])) return payload[keys.items];
-        if (Array.isArray(payload[keys.value])) return payload[keys.value];
-        const values = Object.values(payload);
-        if (values.length && values.every(v => typeof v === 'object')) return values;
-      }
-      return [];
+    if (img) {
+      imgEl.src = img;
+      imgEl.alt = displayName;
+    } else {
+      node.querySelector('.media').remove();
     }
 
-    let selectedIdp = null;
+    return node;
+  }
 
-    async function loadIdps() {
-      const listEl = $('#idp-list');
-      const statusEl = $('#idp-status');
-      listEl.innerHTML = '';
-      statusEl.textContent = 'Laddar IDP-lista…';
-      try {
-        const res = await fetch(IDP_URL, { cache: 'no-store' });
-        if (!res.ok) throw new Error(`HTTP ${res.status}
+  async function loadData() {
+    const cardsEl = $('#cards');
+    cardsEl.innerHTML = '';
 
-    function selectIdp(item) {
-      selectedIdp = item;
-      $('#idp-panel').style.display = 'none';
-      $('#cards').hidden = false;
-      setStatus('Laddar data…', true);
+    for (let i = 0; i < 6; i++) {
+      const sk = document.createElement('div');
+      sk.className = 'skeleton';
+      cardsEl.appendChild(sk);
+    }
+
+    try {
+      const res = await fetch(DATA_URL, { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const payload = await res.json();
+      const items = normalizeItems(payload);
+
+      cardsEl.innerHTML = '';
+      if (!items.length) { setStatus('Inga kort att visa.'); return; }
+
+      const frag = document.createDocumentFragment();
+      for (const item of items) frag.appendChild(createCard(item));
+      cardsEl.appendChild(frag);
+      setStatus('Visar ' + items.length + ' kort.');
+    } catch (err) {
+      console.error(err);
+      cardsEl.innerHTML = '';
+      setStatus('Kunde inte läsa in data. Försök igen.', false);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => { loadIdps(); });
+  document.getElementById('reload').addEventListener('click', () => {
+    if (!selectedIdp) {
+      $('#idp-panel').style.display = '';
+      $('#cards').hidden = true;
+      $('#status').hidden = true;
+      loadIdps();
+    } else {
       loadData();
     }
-
-    function createCard(item) {
-      const tpl = document.getElementById('card-template');
-      const node = tpl.content.firstElementChild.cloneNode(true);
-
-      const titleEl = node.querySelector('.title');
-      const descEl = node.querySelector('.desc');
-      const imgEl = node.querySelector('img');
-
-      const displayName = item.spDisplayName ?? '(utan namn)';
-      const img = item.spImg || '';
-      const base = item.spLink || '';
-      const target = item.spTarget || '';
-      const idpPart = selectedIdp?.idpEntityId || '';
-
-      node.href = `${base}${idpPart}${target}`;
-      node.setAttribute('aria-label', `Öppna: ${displayName}`);
-
-      titleEl.textContent = displayName;
-
-      if (item.description) {
-        descEl.textContent = item.description;
-      } else {
-        descEl.remove();
-      }
-
-      if (img) {
-        imgEl.src = img;
-        imgEl.alt = displayName;
-      } else {
-        node.querySelector('.media').remove();
-      }
-
-      return node;
-    }
-
-    async function loadData() {
-      const cardsEl = $('#cards');
-      cardsEl.innerHTML = '';
-
-      for (let i = 0; i < 6; i++) {
-        const sk = document.createElement('div');
-        sk.className = 'skeleton';
-        cardsEl.appendChild(sk);
-      }
-
-      try {
-        const res = await fetch(DATA_URL, { cache: 'no-store' });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const payload = await res.json();
-        const items = normalizeItems(payload);
-
-        cardsEl.innerHTML = '';
-        if (!items.length) {
-          setStatus('Inga kort att visa.');
-          return;
-        }
-
-        const frag = document.createDocumentFragment();
-        items.forEach(item => frag.appendChild(createCard(item)));
-        cardsEl.appendChild(frag);
-        setStatus(`Visar ${items.length} kort.`);
-      } catch (err) {
-        console.error(err);
-        cardsEl.innerHTML = '';
-        setStatus('Kunde inte läsa in data. Försök igen.', false);
-      }
-    }
-
-    document.addEventListener('DOMContentLoaded', loadIdps);
-    document.getElementById('reload').addEventListener('click', () => {
-      if (!selectedIdp) {
-        $('#idp-panel').style.display = '';
-        $('#cards').hidden = true;
-        $('#status').hidden = true;
-        loadIdps();
-      } else {
-        loadData();
-      }
-    });
-  </script>
+  });
+</script>
 </body>
 </html>
