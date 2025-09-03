@@ -38,7 +38,7 @@
     <h1>Filkryptering & Signering i webbläsaren</h1>
     <p>Web Crypto (hybrid AES‑GCM + RSA‑OAEP) och ECDSA‑signering. Privata nycklar ligger krypterade i IndexedDB och kräver <strong>lösenord</strong> och, om aktiverat, <strong>WebAuthn</strong> för att användas.</p>
     <nav class="tabs" aria-label="Sektioner">
-      <button class="tab-btn" data-target="vault">🔐 Lås & WebAuthn</button>
+      <button class="tab-btn active" data-target="vault">🔐 Lås & WebAuthn</button>
       <button class="tab-btn" data-target="keys">🔑 Nycklar</button>
       <button class="tab-btn" data-target="import">📥 Importera publik nyckel</button>
       <button class="tab-btn" data-target="encrypt">🧩 Kryptera</button>
@@ -56,7 +56,7 @@
       <div class="status" id="envStatus">Initierar…</div>
     </section>
 
-    <section class="card section" id="vault" data-section>
+    <section class="card section active" id="vault" data-section>
       <h2>Säkerhetslås: Lösenord + WebAuthn</h2>
       <p>Ställ in ett lösenord och (valfritt) koppla en WebAuthn‑nyckel (plattform eller extern) för tvåfaktors‑upplåsning.</p>
       <div class="grid-2">
@@ -206,11 +206,11 @@
   function showSection(id){
     sections().forEach(s=>s.classList.toggle('active', s.id===id));
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.getAttribute('data-target')===id));
-    try { history.replaceState(null, '', '#'+id); } catch {}
+    try { history.replaceState(null, '', '#'+id); } catch(e){}
   }
   function initTabs(){
     document.querySelectorAll('.tab-btn').forEach(btn=>btn.addEventListener('click', ()=>showSection(btn.getAttribute('data-target'))));
-    const start = location.hash?.slice(1) || 'vault';
+    const start = (location.hash && location.hash.slice(1)) || 'vault';
     showSection(document.getElementById(start)? start : 'vault');
   }
   document.addEventListener('DOMContentLoaded', initTabs);
@@ -224,6 +224,25 @@ navButtons.forEach(btn => btn.addEventListener('click', () => {
   document.querySelectorAll('main section').forEach(sec => sec.classList.remove('active'));
   document.getElementById(btn.dataset.target).classList.add('active');
 }));
+(function(){
+  function show(id){
+    var secs=document.querySelectorAll('[data-section]');
+    for(var i=0;i<secs.length;i++){ secs[i].classList.toggle('active', secs[i].id===id); }
+    var btns=document.querySelectorAll('.tab-btn');
+    for(var j=0;j<btns.length;j++){ btns[j].classList.toggle('active', btns[j].getAttribute('data-target')===id); }
+  }
+  function wire(){
+    document.querySelector('nav.tabs')?.addEventListener('click', function(ev){
+      var btn=ev.target.closest('.tab-btn'); if(!btn) return;
+      var id=btn.getAttribute('data-target'); if(!id) return; show(id); try{ history.replaceState(null,'','#'+id);}catch(e){}
+    });
+    var start=(location.hash && location.hash.slice(1)) || 'vault';
+    if(!document.getElementById(start)) start='vault';
+    show(start);
+    window.addEventListener('hashchange', function(){ var id=location.hash.slice(1); if(document.getElementById(id)) show(id); });
+  }
+  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', wire); } else { wire(); }
+})();
 </script>
 </body>
 </html>
