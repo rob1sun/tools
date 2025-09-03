@@ -2,7 +2,7 @@
 <html lang="sv">
 <head>
   <meta charset="utf-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Filkrypto & Signering – Web Crypto (single file, losenord + WebAuthn)</title>
   <style>
@@ -38,6 +38,7 @@
     footer { max-width:1180px; margin:20px auto 40px; padding: 0 16px; color: var(--muted); font-size:.9rem; }
     .tag { display:inline-flex; gap:6px; align-items:center; padding:4px 8px; border-radius:999px; border:1px solid rgba(255,255,255,.12); background:#0d1530; color:var(--muted); font-size:.78rem; }
     code { background:#0e1530; padding:2px 6px; border-radius:6px; border:1px solid rgba(255,255,255,.1); }
+  .grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   </style>
 </head>
 <body>
@@ -60,7 +61,7 @@
     <section class="card section" id="env" data-section>
       <h2>Miljokoll</h2>
       <div class="row" id="envTags"></div>
-      <div class="status" id="envStatus">Initierar…</div>
+      <div class="status" id="envStatus">Initierar...</div>
     </section>
 
     <section class="card section active" id="vault" data-section>
@@ -213,7 +214,7 @@
 // ===== Bootstrap & Diagnostics (ASCII only) =====
 (function(){
   'use strict';
-  var APP_VERSION = 'v1.6.1 (2025-09-03)';
+  var APP_VERSION = 'v1.6.2 (2025-09-03)';
   window.__APP_VERSION__ = APP_VERSION;
   function setVersion(){ var el=document.getElementById('appVersion'); if(el) el.textContent = APP_VERSION; }
   if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', setVersion); } else { setVersion(); }
