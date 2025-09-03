@@ -197,51 +197,213 @@
   </main>
 
   <footer>
-    <p>Privata nycklar är krypterade i IndexedDB. Upplåsning kräver lösenord och ev. WebAuthn.</p>
+    <p><strong>Tips:</strong> Kör över <code>https://</code> (eller <code>http://localhost</code>). WebAuthn kräver säker kontext och användargest. Backupfilen <code>.keyvault.json</code> är krypterad med ditt lösenord – förvara det säkert.</p>
+    <p class="small">Begränsning: I denna offline‑app används WebAuthn som stark lokal <em>andra faktor</em> (gate). Full kryptografisk server‑verifiering av assertions görs inte. För högsta säkerhet: kombinera med strikt CSP och hårdvarunyckel.</p>
+    <p class="small">Version <span id="appVersion"></span></p>
   </footer>
+
 <script>
-// --- Tabb-styrenhet injiceras här ---
+// ===== Single-file App Bootstrap & Diagnostics =====
 (function(){
-  const sections = () => Array.from(document.querySelectorAll('[data-section]'));
+  var APP_VERSION = 'v1.5.0 (2025-09-03)';
+  window.__APP_VERSION__ = APP_VERSION;
+  function setVersion(){ var el=document.getElementById('appVersion'); if(el) el.textContent = APP_VERSION; }
+  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', setVersion); } else { setVersion(); }
+  function panic(msg){ try{ var el=document.getElementById('envStatus'); if(el){ el.textContent='Fel: '+msg; el.style.color='var(--err)'; el.style.borderColor='rgba(255,107,107,.45)'; } }catch(e){} }
+  window.addEventListener('error', function(e){ panic(e.message||String(e)); });
+  window.addEventListener('unhandledrejection', function(e){ var r=e.reason||{}; panic(r.message? r.message : String(r)); });
+
+  // Tabs
   function showSection(id){
-    sections().forEach(s=>s.classList.toggle('active', s.id===id));
-    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.getAttribute('data-target')===id));
-    try { history.replaceState(null, '', '#'+id); } catch(e){}
+    var secs=document.querySelectorAll('[data-section]'); for(var i=0;i<secs.length;i++){ secs[i].classList.toggle('active', secs[i].id===id); }
+    var btns=document.querySelectorAll('.tab-btn'); for(var j=0;j<btns.length;j++){ btns[j].classList.toggle('active', btns[j].getAttribute('data-target')===id); }
+    try{ history.replaceState(null,'','#'+id);}catch(e){}
   }
   function initTabs(){
-    document.querySelectorAll('.tab-btn').forEach(btn=>btn.addEventListener('click', ()=>showSection(btn.getAttribute('data-target'))));
-    const start = (location.hash && location.hash.slice(1)) || 'vault';
-    showSection(document.getElementById(start)? start : 'vault');
+    var nav=document.querySelector('nav.tabs'); if(nav){
+      nav.addEventListener('click', function(ev){ var btn=ev.target.closest('.tab-btn'); if(!btn) return; var id=btn.getAttribute('data-target'); if(!id) return; showSection(id); });
+    }
+    var start=(location.hash && location.hash.slice(1)) || 'vault'; if(!document.getElementById(start)) start='vault'; showSection(start);
+    window.addEventListener('hashchange', function(){ var id=location.hash.slice(1); if(document.getElementById(id)) showSection(id); });
   }
-  document.addEventListener('DOMContentLoaded', initTabs);
+  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', initTabs); } else { initTabs(); }
 })();
+</script>
 
-// Navigation
-const navButtons = document.querySelectorAll('nav button');
-navButtons.forEach(btn => btn.addEventListener('click', () => {
-  navButtons.forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  document.querySelectorAll('main section').forEach(sec => sec.classList.remove('active'));
-  document.getElementById(btn.dataset.target).classList.add('active');
-}));
+<script>
+// ===== Core App (Web Crypto + Vault + WebAuthn) =====
 (function(){
-  function show(id){
-    var secs=document.querySelectorAll('[data-section]');
-    for(var i=0;i<secs.length;i++){ secs[i].classList.toggle('active', secs[i].id===id); }
-    var btns=document.querySelectorAll('.tab-btn');
-    for(var j=0;j<btns.length;j++){ btns[j].classList.toggle('active', btns[j].getAttribute('data-target')===id); }
+  // ---- IndexedDB ----
+  var dbp = new Promise(function(resolve, reject){ var open=indexedDB.open('crypto-app-v4',1); open.onupgradeneeded=function(){ open.result.createObjectStore('kv'); }; open.onsuccess=function(){ resolve(open.result); }; open.onerror=function(){ reject(open.error); }; });
+  function dbGet(key){ return dbp.then(function(db){ return new Promise(function(res,rej){ var tx=db.transaction('kv'); var st=tx.objectStore('kv'); var req=st.get(key); req.onsuccess=function(){ res(req.result); }; req.onerror=function(){ rej(req.error); }; }); }); }
+  function dbSet(key,val){ return dbp.then(function(db){ return new Promise(function(res,rej){ var tx=db.transaction('kv','readwrite'); var st=tx.objectStore('kv'); var req=st.put(val,key); req.onsuccess=function(){ res(true); }; req.onerror=function(){ rej(req.error); }; }); }); }
+  function dbDel(key){ return dbp.then(function(db){ return new Promise(function(res,rej){ var tx=db.transaction('kv','readwrite'); var st=tx.objectStore('kv'); var req=st.delete(key); req.onsuccess=function(){ res(true); }; req.onerror=function(){ rej(req.error); }; }); }); }
+
+  // ---- Utils ----
+  var te = new TextEncoder(); var td = new TextDecoder();
+  function toB64(buf){ return btoa(String.fromCharCode.apply(null, new Uint8Array(buf))); }
+  function fromB64(b64){ return Uint8Array.from(atob(b64), function(c){ return c.charCodeAt(0); }).buffer; }
+  function toHex(buf){ var a=new Uint8Array(buf); var s=''; for(var i=0;i<a.length;i++){ var h=a[i].toString(16); if(h.length<2) h='0'+h; s+=h; } return s; }
+  function toB64url(buf){ return toB64(buf).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+  function fromB64url(str){ var pad='='.repeat((4-(str.length%4))%4); var b64=str.replace(/-/g,'+').replace(/_/g,'/')+pad; return fromB64(b64); }
+  function download(name, data, type){ var blob=(data instanceof Blob)? data : new Blob([data],{type:type||'application/octet-stream'}); var url=URL.createObjectURL(blob); var a=document.createElement('a'); a.href=url; a.download=name; a.click(); setTimeout(function(){ URL.revokeObjectURL(url); },1500); }
+  function downloadJSON(name, obj){ download(name, new Blob([JSON.stringify(obj,null,2)],{type:'application/json'}), 'application/json'); }
+  function showStatus(sel, msg, tone){ var el=document.querySelector(sel); if(!el) return; el.textContent=msg; el.style.borderColor = tone==='ok'? 'rgba(53,208,127,.45)' : tone==='warn'? 'rgba(255,204,102,.45)' : tone==='err'? 'rgba(255,107,107,.45)' : 'rgba(255,255,255,.15)'; el.style.color = tone==='err'? 'var(--err)' : tone==='warn'? 'var(--warn)' : tone==='ok'? 'var(--ok)' : 'var(--muted)'; }
+
+  // ---- KDF & Vault (PBKDF2 + AES-GCM) ----
+  function deriveAesKey(password, salt, iterations){ return crypto.subtle.importKey('raw', te.encode(password), {name:'PBKDF2'}, false, ['deriveKey']).then(function(baseKey){ return crypto.subtle.deriveKey({name:'PBKDF2', salt:salt, iterations:iterations, hash:'SHA-256'}, baseKey, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']); }); }
+  function encryptJSON(obj, password, iterations){ iterations = iterations||250000; var salt=crypto.getRandomValues(new Uint8Array(16)); var iv=crypto.getRandomValues(new Uint8Array(12)); return deriveAesKey(password, salt, iterations).then(function(aesKey){ var pt=te.encode(JSON.stringify(obj)); return crypto.subtle.encrypt({name:'AES-GCM', iv:iv}, aesKey, pt).then(function(ct){ return {version:1, createdAt:new Date().toISOString(), kdf:{name:'PBKDF2', hash:'SHA-256', iterations:iterations, salt:toB64(salt)}, enc:{algo:'AES-GCM', iv:toB64(iv), ciphertext:toB64(ct)}}; }); }); }
+  function decryptJSON(vaultObj, password){ var kdf=vaultObj.kdf; var part=vaultObj.enc; var salt=new Uint8Array(fromB64(kdf.salt)); var iv=new Uint8Array(fromB64(part.iv)); return deriveAesKey(password, salt, kdf.iterations).then(function(aesKey){ return crypto.subtle.decrypt({name:'AES-GCM', iv:iv}, aesKey, fromB64(part.ciphertext)); }).then(function(pt){ return JSON.parse(td.decode(pt)); }); }
+
+  // ---- Global state ----
+  var unlocked=false, autoLockTimer=null, autoLockMinutes=5, lastActivity=Date.now();
+  var theirEncPubKey=null; var priv={ encKey:null, signKey:null }; var pubJwk={ enc:null, sign:null };
+  var webauthnCred=null; var webauthnRequired=false;
+  function touch(){ lastActivity=Date.now(); scheduleAutoLock(); }
+  function scheduleAutoLock(){ if(autoLockTimer) clearTimeout(autoLockTimer); if(autoLockMinutes && autoLockMinutes>0){ autoLockTimer=setTimeout(lockNow, autoLockMinutes*60*1000); } }
+  function setLockState(){ var s=document.getElementById('lockState'); if(!s) return; s.textContent = 'Låsstatus: '+(unlocked? 'Upplåst':'Låst') + (unlocked && autoLockMinutes? ' (auto‑lås om ~'+autoLockMinutes+' min)' : '') + (webauthnRequired? ' · 2FA (WebAuthn krävs)':''); }
+  function lockNow(){ priv.encKey=null; priv.signKey=null; unlocked=false; setLockState(); showStatus('#vaultStatus','Låst.','ok'); }
+
+  // ---- Miljökoll ----
+  function ensureEnv(){
+    try{
+      var tags=document.getElementById('envTags'); var secure=window.isSecureContext; var hasCrypto=!!(window.crypto && crypto.subtle); var iDB='indexedDB' in window; var hasWebAuthn=('PublicKeyCredential' in window);
+      function tag(label, ok){ var span=document.createElement('span'); span.className='tag'; span.style.borderColor = ok? 'rgba(122,162,255,.45)':'rgba(255,107,107,.45)'; span.innerHTML = (ok? '✅ ':'⚠️ ')+label; tags && tags.appendChild(span); }
+      tag(secure? 'SecureContext: OK':'Kräver HTTPS/localhost', secure);
+      tag(hasCrypto? 'Web Crypto: OK':'Web Crypto: saknas', hasCrypto);
+      tag(iDB? 'IndexedDB: OK':'IndexedDB: saknas', iDB);
+      tag(hasWebAuthn? 'WebAuthn API: OK':'WebAuthn: saknas', hasWebAuthn);
+      if (hasWebAuthn && PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable){
+        PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then(function(uv){ tag(uv? 'Plattformsnyckel: Tillgänglig':'Plattformsnyckel: Ej tillgänglig', uv); });
+      }
+      showStatus('#envStatus','URL: '+location.href+'
+Säker kontext: '+secure+'
+Web Crypto: '+hasCrypto+'
+IndexedDB: '+iDB);
+    }catch(e){ showStatus('#envStatus','Fel i miljökoll: '+e.message,'err'); }
   }
+
+  // ---- Nyckelhantering ----
+  function generateKeys(){
+    var p1=document.getElementById('setPass1').value || document.getElementById('unlockPass').value;
+    var p2=document.getElementById('setPass2').value || document.getElementById('unlockPass').value;
+    if(!p1 || p1!==p2){ showStatus('#keysStatus','Ställ in ett lösenord (två lika fält) innan generering.','warn'); return; }
+    showStatus('#keysStatus','Genererar RSA‑OAEP 4096…');
+    crypto.subtle.generateKey({name:'RSA-OAEP', modulusLength:4096, publicExponent:new Uint8Array([1,0,1]), hash:'SHA-256'}, true, ['encrypt','decrypt','unwrapKey']).then(function(encPair){
+      showStatus('#keysStatus','Genererar ECDSA P‑256…');
+      crypto.subtle.generateKey({name:'ECDSA', namedCurve:'P-256'}, true, ['sign','verify']).then(function(signPair){
+        Promise.all([
+          crypto.subtle.exportKey('jwk', encPair.privateKey),
+          crypto.subtle.exportKey('jwk', encPair.publicKey),
+          crypto.subtle.exportKey('jwk', signPair.privateKey),
+          crypto.subtle.exportKey('jwk', signPair.publicKey)
+        ]).then(function(arr){
+          var encPrivJwk=arr[0], encPub=arr[1], signPrivJwk=arr[2], signPub=arr[3];
+          pubJwk.enc=encPub; pubJwk.sign=signPub; dbSet('pub.enc.jwk', encPub); dbSet('pub.sign.jwk', signPub);
+          encryptJSON({encPrivJwk:encPrivJwk, signPrivJwk:signPrivJwk}, p1).then(function(vault){ dbSet('vault', vault).then(function(){
+            priv.encKey=null; priv.signKey=null; unlocked=false; setLockState();
+            showStatus('#keysStatus','Klar: nycklar skapade och lagrade i krypterad vault ✔️','ok');
+            showStatus('#vaultStatus','Vault skapad/uppdaterad. Exportera backup vid behov.','ok');
+          }); });
+        });
+      });
+    }).catch(function(e){ showStatus('#keysStatus','Fel vid generering: '+e.message,'err'); });
+  }
+  function exportPubEnc(){ (pubJwk.enc? Promise.resolve(pubJwk.enc) : dbGet('pub.enc.jwk')).then(function(jwk){ if(!jwk) return showStatus('#keysStatus','Ingen publik krypteringsnyckel – generera först.','warn'); document.getElementById('pubEncOut').value = JSON.stringify(jwk, null, 2); }); }
+  function exportPubSign(){ (pubJwk.sign? Promise.resolve(pubJwk.sign) : dbGet('pub.sign.jwk')).then(function(jwk){ if(!jwk) return showStatus('#keysStatus','Ingen publik signeringsnyckel – generera först.','warn'); document.getElementById('pubSignOut').value = JSON.stringify(jwk, null, 2); }); }
+
+  // ---- Vault: lösenord ----
+  function setPassword(){
+    var p1=document.getElementById('setPass1').value.trim(); var p2=document.getElementById('setPass2').value.trim(); if(!p1||p1!==p2){ showStatus('#vaultStatus','Lösenorden måste vara ifyllda och lika.','warn'); return; }
+    dbGet('vault').then(function(existing){ if(existing){
+      var oldPass=document.getElementById('unlockPass').value || p1; decryptJSON(existing, oldPass).then(function(payload){ encryptJSON(payload, p1).then(function(newVault){ dbSet('vault', newVault).then(function(){ showStatus('#vaultStatus','Lösenord uppdaterat och vault re‑krypterad.','ok'); }); }); }).catch(function(){ showStatus('#vaultStatus','Kunde inte uppdatera – lås upp med det gamla lösenordet först.','err'); });
+    } else { encryptJSON({}, p1).then(function(newVault){ dbSet('vault', newVault).then(function(){ showStatus('#vaultStatus','Lösenord satt. Generera nycklar för att fylla din vault.','ok'); }); }); } });
+  }
+  function unlockNow(){
+    var pass=document.getElementById('unlockPass').value.trim(); if(!pass){ showStatus('#vaultStatus','Fyll i lösenord.','warn'); return; }
+    dbGet('vault').then(function(vault){ if(!vault) return showStatus('#vaultStatus','Ingen vault hittades – skapa nycklar först.','warn'); decryptJSON(vault, pass).then(function(payload){ if(!payload.encPrivJwk||!payload.signPrivJwk) return showStatus('#vaultStatus','Vault saknar nycklar. Generera dem först.','warn');
+      function importKeys(){ Promise.all([
+        crypto.subtle.importKey('jwk', payload.encPrivJwk, {name:'RSA-OAEP', hash:'SHA-256'}, false, ['decrypt','unwrapKey']),
+        crypto.subtle.importKey('jwk', payload.signPrivJwk, {name:'ECDSA', namedCurve:'P-256'}, false, ['sign'])
+      ]).then(function(k){ priv.encKey=k[0]; priv.signKey=k[1]; unlocked=true; touch(); setLockState(); showStatus('#vaultStatus','Upplåst.','ok'); }); }
+      if(webauthnRequired){ webauthnAssert().then(function(ok){ if(ok) importKeys(); else showStatus('#vaultStatus','WebAuthn misslyckades eller avbröts.','err'); }); } else { importKeys(); }
+    }).catch(function(e){ showStatus('#vaultStatus','Fel vid upplåsning: '+e.message,'err'); }); });
+  }
+  function exportVault(){ dbGet('vault').then(function(v){ if(!v) return showStatus('#vaultStatus','Ingen vault att exportera.','warn'); downloadJSON('keys.keyvault.json', v); }); }
+  function importVaultFromFile(ev){ var f=ev.target.files[0]; if(!f) return; f.text().then(function(txt){ try{ var v=JSON.parse(txt); if(!v.enc||!v.kdf) throw new Error('Ogiltig vault'); dbSet('vault', v).then(function(){ showStatus('#vaultStatus','Vault importerad ✔️','ok'); }); } catch(e){ showStatus('#vaultStatus','Fel vid import: '+e.message,'err'); } }); }
+  function wipeAll(){ Promise.all([dbDel('vault'), dbDel('pub.enc.jwk'), dbDel('pub.sign.jwk'), dbDel('webauthn.cred'), dbDel('webauthn.required')]).then(function(){ priv.encKey=null; priv.signKey=null; pubJwk={enc:null,sign:null}; webauthnCred=null; webauthnRequired=false; unlocked=false; setLockState(); showStatus('#vaultStatus','Allt rensat från denna webbläsare.','ok'); updateWebAuthnState(); }); }
+
+  // ---- WebAuthn helpers ----
+  function webauthnAvailable(){ return ('PublicKeyCredential' in window); }
+  function getRpId(){ try{ return location.hostname || undefined; } catch(e){ return undefined; } }
+  function registerWebAuthn(){ if(!webauthnAvailable()) return showStatus('#vaultStatus','WebAuthn stöds ej i denna miljö.','err');
+    try{
+      var userId = crypto.getRandomValues(new Uint8Array(16)); var challenge = crypto.getRandomValues(new Uint8Array(32));
+      var attachSel = document.getElementById('webauthnAttachment').value; var authSel = attachSel==='any'? { userVerification:'required' } : { userVerification:'required', authenticatorAttachment: attachSel };
+      var algs=[-7,-257,-8,-259].map(function(a){ return {type:'public-key', alg:a}; });
+      var publicKey={ challenge:challenge, rp:{name:'Local Crypto App', id:getRpId()}, user:{ id:userId, name:'local-user', displayName:'Local User' }, pubKeyCredParams:algs, timeout:60000, authenticatorSelection:authSel, attestation:'none' };
+      navigator.credentials.create({ publicKey: publicKey }).then(function(cred){ var rawId=new Uint8Array(cred.rawId); var store={ id: toB64url(rawId), userId: toB64url(userId) }; dbSet('webauthn.cred', store).then(function(){ webauthnCred=store; updateWebAuthnState(); showStatus('#vaultStatus','WebAuthn‑nyckel registrerad ✔️','ok'); }); }).catch(function(e){ showStatus('#vaultStatus','Registrering misslyckades: '+e.message,'err'); });
+    }catch(e){ showStatus('#vaultStatus','Registrering misslyckades: '+e.message,'err'); }
+  }
+  function webauthnAssert(){ return new Promise(function(resolve){ try{ var info=webauthnCred; var p=(info? Promise.resolve(info) : dbGet('webauthn.cred')); p.then(function(i){ if(!i) return resolve(false); var challenge=crypto.getRandomValues(new Uint8Array(32)); var allow=[{ type:'public-key', id:new Uint8Array(fromB64url(i.id)) }]; navigator.credentials.get({ publicKey:{ challenge:challenge, allowCredentials:allow, userVerification:'required', timeout:60000, rpId:getRpId() } }).then(function(assertion){ resolve(!!assertion); }).catch(function(){ resolve(false); }); }); }catch(e){ resolve(false); } }); }
+  function testWebAuthn(){ webauthnAssert().then(function(ok){ showStatus('#vaultStatus', ok? 'WebAuthn‑autentisering OK ✔️' : 'WebAuthn‑autentisering misslyckades/avbröts.', ok? 'ok':'err'); }); }
+  function removeWebAuthn(){ dbDel('webauthn.cred').then(function(){ webauthnCred=null; showStatus('#vaultStatus','WebAuthn‑koppling borttagen.','ok'); updateWebAuthnState(); }); }
+  function toggleRequireWebAuthn(){ webauthnRequired = !!document.getElementById('requireWebAuthn').checked; dbSet('webauthn.required', webauthnRequired).then(updateWebAuthnState); }
+  function updateWebAuthnState(){ Promise.all([ dbGet('webauthn.cred'), dbGet('webauthn.required') ]).then(function(arr){ var cred=arr[0]; var req=arr[1]===true || webauthnRequired; webauthnCred=cred||null; webauthnRequired=!!req; var lab=document.getElementById('webauthnState'); if(lab) lab.textContent = 'WebAuthn: '+(webauthnCred? 'registrerad ✔️':'inte registrerad')+' · Krav: '+(webauthnRequired? 'på':'av'); var cb=document.getElementById('requireWebAuthn'); if(cb) cb.checked = webauthnRequired; setLockState(); }); }
+
+  // ---- Import recipient public key ----
+  function importRecipientFromText(){ try{ var raw=document.getElementById('theirPubJwk').value.trim(); if(!raw) return showStatus('#importStatus','Klistra in JWK först.','warn'); var jwk=JSON.parse(raw); if(jwk.kty!=='RSA') throw new Error('Måste vara RSA JWK för RSA‑OAEP.'); crypto.subtle.importKey('jwk', jwk, {name:'RSA-OAEP', hash:'SHA-256'}, true, ['encrypt']).then(function(k){ theirEncPubKey=k; showStatus('#importStatus','Mottagarens publika nyckel importerad ✔️','ok'); }); } catch(e){ showStatus('#importStatus','Fel vid import: '+e.message,'err'); } }
+  function theirPubFileChanged(e){ var f=e.target.files[0]; if(!f) return; f.text().then(function(txt){ document.getElementById('theirPubJwk').value=txt; importRecipientFromText(); }).catch(function(e2){ showStatus('#importStatus','Fel vid fil‑läsning: '+e2.message,'err'); }); }
+
+  // ---- Encrypt / Decrypt ----
+  function encryptForRecipient(){ var file=document.getElementById('encFile').files[0]; if(!file) return showStatus('#encStatus','Välj en fil att kryptera.','warn'); if(!theirEncPubKey) return showStatus('#encStatus','Importera mottagarens publika nyckel först.','warn');
+    showStatus('#encStatus','Läser fil…'); file.arrayBuffer().then(function(data){ crypto.subtle.generateKey({name:'AES-GCM', length:256}, true, ['encrypt','decrypt']).then(function(aesKey){ var iv=crypto.getRandomValues(new Uint8Array(12)); showStatus('#encStatus','Krypterar (AES‑GCM)…'); crypto.subtle.encrypt({name:'AES-GCM', iv:iv}, aesKey, data).then(function(ct){ showStatus('#encStatus','Wrappar AES‑nyckel (RSA‑OAEP)…'); crypto.subtle.wrapKey('raw', aesKey, theirEncPubKey, {name:'RSA-OAEP'}).then(function(wrapped){ var pkg={ type:'hybrid-enc', encAlgo:'AES-GCM', iv:toB64(iv), wrappedKeyAlgo:'RSA-OAEP', wrappedKey:toB64(wrapped), ciphertext:toB64(ct), filename:file.name, mime:file.type||'application/octet-stream', size:file.size, createdAt:new Date().toISOString() }; downloadJSON(file.name+'.enc.json', pkg); showStatus('#encStatus','Klar: filen är krypterad och nedladdad ✔️','ok'); }); }); }); }).catch(function(e){ showStatus('#encStatus','Fel vid kryptering: '+e.message,'err'); }); }
+  function ensureUnlocked(opSel){ if(unlocked && priv.encKey && priv.signKey) return true; showStatus(opSel||'#vaultStatus','Åtgärden kräver upplåst session. Skriv lösenordet och klicka "Lås upp".','warn'); return false; }
+  function decryptForMe(){ if(!ensureUnlocked('#decStatus')) return; var file=document.getElementById('decFile').files[0]; if(!file) return showStatus('#decStatus','Välj en .enc.json att dekryptera.','warn'); file.text().then(function(txt){ try{ var pkg=JSON.parse(txt); if(pkg.type!=='hybrid-enc') throw new Error('Okänt paketformat.'); var wrapped=fromB64(pkg.wrappedKey); var iv=new Uint8Array(fromB64(pkg.iv)); touch(); showStatus('#decStatus','Återställer AES‑nyckel…'); crypto.subtle.unwrapKey('raw', wrapped, priv.encKey, {name:'RSA-OAEP'}, {name:'AES-GCM', length:256}, true, ['decrypt']).then(function(aesKey){ showStatus('#decStatus','Dekrypterar (AES‑GCM)…'); crypto.subtle.decrypt({name:'AES-GCM', iv:iv}, aesKey, fromB64(pkg.ciphertext)).then(function(pt){ var outBlob=new Blob([pt], {type: pkg.mime||'application/octet-stream'}); var outName=(pkg.filename||'fil')+'.decrypted'; download(outName, outBlob, outBlob.type); showStatus('#decStatus','Klar: filen är dekrypterad ✔️','ok'); }); }); } catch(e){ showStatus('#decStatus','Fel vid dekryptering: '+e.message,'err'); } }).catch(function(e){ showStatus('#decStatus','Fel: '+e.message,'err'); }); }
+
+  // ---- Sign & Verify ----
+  function signFile(){ if(!ensureUnlocked('#signStatus')) return; var file=document.getElementById('signFile').files[0]; if(!file) return showStatus('#signStatus','Välj en fil att signera.','warn'); showStatus('#signStatus','Läser fil…'); file.arrayBuffer().then(function(data){ crypto.subtle.digest('SHA-256', data).then(function(digest){ touch(); showStatus('#signStatus','Signerar (ECDSA P‑256)…'); crypto.subtle.sign({name:'ECDSA', hash:'SHA-256'}, priv.signKey, digest).then(function(sig){ (pubJwk.sign? Promise.resolve(pubJwk.sign) : dbGet('pub.sign.jwk')).then(function(pub){ var sigPkg={ type:'ecdsa-detached-sig', algorithm:'ECDSA-P256-SHA256', file:{ name:file.name, size:file.size, mime:file.type||'application/octet-stream' }, sha256:toHex(digest), signature:toB64(sig), publicKeyJwk: pub, createdAt:new Date().toISOString() }; downloadJSON(file.name+'.sig.json', sigPkg); showStatus('#signStatus','Klar: signatur skapad ✔️','ok'); }); }); }); }).catch(function(e){ showStatus('#signStatus','Fel vid signering: '+e.message,'err'); }); }
+  function verifySig(){ var f=document.getElementById('verifyFile').files[0]; var s=document.getElementById('verifySig').files[0]; if(!f||!s) return showStatus('#verifyStatus','Välj både fil och .sig.json.','warn'); Promise.all([f.arrayBuffer(), s.text()]).then(function(arr){ var data=arr[0]; var sigTxt=arr[1]; try{ var sigPkg=JSON.parse(sigTxt); if(sigPkg.type!=='ecdsa-detached-sig') throw new Error('Okänt signaturformat.'); crypto.subtle.digest('SHA-256', data).then(function(digest){ if(toHex(digest)!==sigPkg.sha256) return showStatus('#verifyStatus','Hash mismatch – fel fil?','err'); crypto.subtle.importKey('jwk', sigPkg.publicKeyJwk, {name:'ECDSA', namedCurve:'P-256'}, true, ['verify']).then(function(pubKey){ crypto.subtle.verify({name:'ECDSA', hash:'SHA-256'}, pubKey, fromB64(sigPkg.signature), digest).then(function(ok){ showStatus('#verifyStatus', ok? 'Signaturen är GILTIG ✔️' : 'Ogiltig signatur ✖️', ok? 'ok':'err'); }); }); }); } catch(e){ showStatus('#verifyStatus','Fel vid verifiering: '+e.message,'err'); } }); }
+
+  // ---- Wire up ----
+  function on(id, ev, fn){ var el=document.getElementById(id); if(el) el.addEventListener(ev, fn); }
   function wire(){
-    document.querySelector('nav.tabs')?.addEventListener('click', function(ev){
-      var btn=ev.target.closest('.tab-btn'); if(!btn) return;
-      var id=btn.getAttribute('data-target'); if(!id) return; show(id); try{ history.replaceState(null,'','#'+id);}catch(e){}
-    });
-    var start=(location.hash && location.hash.slice(1)) || 'vault';
-    if(!document.getElementById(start)) start='vault';
-    show(start);
-    window.addEventListener('hashchange', function(){ var id=location.hash.slice(1); if(document.getElementById(id)) show(id); });
+    on('genKeys','click', generateKeys);
+    on('exportPubEnc','click', exportPubEnc);
+    on('exportPubSign','click', exportPubSign);
+    on('downloadPubEnc','click', function(){ var val=document.getElementById('pubEncOut').value.trim(); if(!val) return showStatus('#keysStatus','Exportera först.','warn'); download('public-encryption-key.pubkey.json', new Blob([val],{type:'application/json'}), 'application/json'); });
+    on('downloadPubSign','click', function(){ var val=document.getElementById('pubSignOut').value.trim(); if(!val) return showStatus('#keysStatus','Exportera först.','warn'); download('public-signing-key.pubsigkey.json', new Blob([val],{type:'application/json'}), 'application/json'); });
+    on('importTheirPub','click', importRecipientFromText);
+    on('theirPubFile','change', theirPubFileChanged);
+    on('doEncrypt','click', encryptForRecipient);
+    on('doDecrypt','click', decryptForMe);
+    on('doSign','click', signFile);
+    on('doVerify','click', verifySig);
+    on('setPassBtn','click', setPassword);
+    on('unlockBtn','click', function(){ var sel=document.getElementById('autoLockMins'); autoLockMinutes = sel? parseInt(sel.value,10):5; unlockNow(); });
+    on('lockNowBtn','click', lockNow);
+    on('wipeBtn','click', wipeAll);
+    on('exportVaultBtn','click', exportVault);
+    on('importVaultFile','change', importVaultFromFile);
+    on('regWebAuthnBtn','click', registerWebAuthn);
+    on('testWebAuthnBtn','click', testWebAuthn);
+    on('removeWebAuthnBtn','click', removeWebAuthn);
+    on('requireWebAuthn','change', toggleRequireWebAuthn);
+
+    document.addEventListener('click', touch); document.addEventListener('keydown', touch);
   }
-  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', wire); } else { wire(); }
+
+  // ---- Init ----
+  function init(){
+    ensureEnv();
+    Promise.all([ dbGet('pub.enc.jwk'), dbGet('pub.sign.jwk'), dbGet('webauthn.cred'), dbGet('webauthn.required'), dbGet('vault') ]).then(function(arr){
+      pubJwk.enc = arr[0]; pubJwk.sign = arr[1]; webauthnCred = arr[2]; webauthnRequired = (arr[3]===true); var hasVault=!!arr[4]; setLockState(); updateWebAuthnState(); showStatus('#keysStatus','Nyckelstatus:
+- Vault: '+(hasVault?'finns ✔️':'saknas')+'
+- Publika nycklar: '+((pubJwk.enc&&pubJwk.sign)?'finns ✔️':'saknas')); wire();
+    });
+  }
+
+  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', init); } else { init(); }
 })();
 </script>
 </body>
