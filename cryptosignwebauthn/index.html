@@ -2,103 +2,110 @@
 <html lang="sv">
 <head>
   <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Filkrypto & Signering – Web Crypto (lösenord + WebAuthn)</title>
+  <title>Filkrypto & Signering – Web Crypto (single file, losenord + WebAuthn)</title>
   <style>
     :root { --bg:#0b1020; --fg:#e9ecf1; --muted:#aab3c0; --card:#121a33; --acc:#7aa2ff; --ok:#35d07f; --warn:#ffcc66; --err:#ff6b6b; }
     * { box-sizing: border-box; }
-    body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans"; background:#0b1020; color:var(--fg); }
-    header { padding: 20px; text-align: center; background:#121a33; position:sticky; top:0; z-index:100; }
-    h1 { margin:0; font-size: 1.4rem; }
-    nav { margin-top:10px; display:flex; flex-wrap:wrap; justify-content:center; gap:8px; }
-    nav button { background:#172044; border:1px solid rgba(255,255,255,.1); color:var(--fg); padding:8px 12px; border-radius:8px; cursor:pointer; }
-    nav button.active { background:#1a2d77; border-color:rgba(122,162,255,.45); }
-    main { max-width: 1000px; margin: 0 auto; padding: 16px; }
-    .card { background: rgba(18,26,51,.85); border: 1px solid rgba(255,255,255,.06); border-radius: 16px; box-shadow: 0 8px 22px rgba(0,0,0,.25); padding: 16px; backdrop-filter: blur(6px); margin-bottom:20px; }
-    .card h2 { margin: 0 0 10px; font-size: 1.1rem; }
-    .row { display:flex; gap:10px; flex-wrap: wrap; align-items: center; }
-    textarea, input[type="password"], input[type="file"], select { width:100%; background:#0e1530; color:var(--fg); border:1px solid rgba(255,255,255,.08); border-radius: 10px; padding:8px 10px; font-size:.9rem; }
-    .btn { padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,.1); background:#172044; color:var(--fg); cursor:pointer; }
-    .btn.acc{ background:#1a2d77; }
-    .btn.ok{ background:#124b33; }
-    .btn.err{ background:#5a1e1e; }
-    .status { margin-top:8px; font-size:.85rem; white-space:pre-wrap; color:var(--muted); }
-    footer { max-width:1000px; margin:20px auto; padding:0 16px; font-size:.85rem; color:var(--muted); }
-    section { display:none; }
-    section.active { display:block; }
-  .tabs{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:14px}
+    body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans"; background:linear-gradient(180deg, #0b1020, #0d1530 25%, #0d1738 60%, #0b1020); color:var(--fg); }
+    header { padding: 28px 20px; text-align: center; }
+    h1 { margin:0; font-size: 1.6rem; letter-spacing: .3px; }
+    header p { margin:.4rem 0 0; color:var(--muted); }
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:14px}
     .tab-btn{appearance:none;border:1px solid rgba(255,255,255,.12);background:#0d1530;color:var(--fg);padding:8px 12px;border-radius:999px;cursor:pointer;font-weight:600}
     .tab-btn.active{background:#1a2d77;border-color:rgba(122,162,255,.45)}
+    main { max-width: 1180px; margin: 0 auto; padding: 16px; display:grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
+    .card { background: rgba(18,26,51,.8); border: 1px solid rgba(255,255,255,.06); border-radius: 16px; box-shadow: 0 8px 22px rgba(0,0,0,.25); padding: 16px; backdrop-filter: blur(6px); }
+    .card h2 { margin: 0 0 10px; font-size: 1.1rem; }
+    .card p { color: var(--muted); margin: 6px 0 12px; }
+    .row { display:flex; gap:10px; flex-wrap: wrap; align-items: center; }
+    label { font-size:.9rem; color:var(--muted); display:block; margin:.2rem 0 .4rem; }
+    input[type="file"], textarea, input[type="password"], input[type="text"], select { width:100%; background:#0e1530; color:var(--fg); border:1px solid rgba(255,255,255,.08); border-radius: 10px; padding:10px 12px; font-size:.92rem; }
+    textarea { min-height: 110px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .btn { appearance:none; border:1px solid rgba(255,255,255,.1); padding:10px 14px; border-radius: 12px; background: #172044; color: var(--fg); font-weight: 600; cursor: pointer; transition: transform .02s ease, background .18s ease; }
+    .btn:hover { background:#1b2653; }
+    .btn:active { transform: translateY(1px); }
+    .btn.acc { background: #1a2d77; border-color: rgba(122, 162, 255, .45); }
+    .btn.ok { background: #124b33; border-color: rgba(53,208,127,.4); }
+    .btn.warn { background: #4d3a09; border-color: rgba(255,204,102,.45);} 
+    .btn.err { background: #5a1e1e; border-color: rgba(255,107,107,.45);} 
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .small { font-size:.85rem; color: var(--muted); }
+    .status { padding:10px 12px; border-radius: 10px; background: #0d1430; border:1px dashed rgba(255,255,255,.15); color:var(--muted); margin-top: 10px; white-space: pre-wrap; word-break: break-word; }
     .section{display:none}
     .section.active{display:block}
+    footer { max-width:1180px; margin:20px auto 40px; padding: 0 16px; color: var(--muted); font-size:.9rem; }
+    .tag { display:inline-flex; gap:6px; align-items:center; padding:4px 8px; border-radius:999px; border:1px solid rgba(255,255,255,.12); background:#0d1530; color:var(--muted); font-size:.78rem; }
+    code { background:#0e1530; padding:2px 6px; border-radius:6px; border:1px solid rgba(255,255,255,.1); }
   </style>
 </head>
 <body>
   <header>
-    <h1>Filkryptering & Signering i webbläsaren</h1>
-    <p>Web Crypto (hybrid AES‑GCM + RSA‑OAEP) och ECDSA‑signering. Privata nycklar ligger krypterade i IndexedDB och kräver <strong>lösenord</strong> och, om aktiverat, <strong>WebAuthn</strong> för att användas.</p>
+    <h1>Filkryptering & Signering i webblasaren</h1>
+    <p>Web Crypto (hybrid AES-GCM + RSA-OAEP) och ECDSA-signering. Privata nycklar ligger krypterade i IndexedDB och kravs losenord och, om aktiverat, WebAuthn for att anvandas.</p>
     <nav class="tabs" aria-label="Sektioner">
-      <button class="tab-btn active" data-target="vault">🔐 Lås & WebAuthn</button>
-      <button class="tab-btn" data-target="keys">🔑 Nycklar</button>
-      <button class="tab-btn" data-target="import">📥 Importera publik nyckel</button>
-      <button class="tab-btn" data-target="encrypt">🧩 Kryptera</button>
-      <button class="tab-btn" data-target="decrypt">🗝️ Dekryptera</button>
-      <button class="tab-btn" data-target="sign">✍️ Signera</button>
-      <button class="tab-btn" data-target="verify">✅ Verifiera</button>
-      <button class="tab-btn" data-target="env" style="margin-left:auto">⚙️ Miljö</button>
+      <button class="tab-btn active" data-target="vault">Lås & WebAuthn</button>
+      <button class="tab-btn" data-target="keys">Nycklar</button>
+      <button class="tab-btn" data-target="import">Importera publik nyckel</button>
+      <button class="tab-btn" data-target="encrypt">Kryptera</button>
+      <button class="tab-btn" data-target="decrypt">Dekryptera</button>
+      <button class="tab-btn" data-target="sign">Signera</button>
+      <button class="tab-btn" data-target="verify">Verifiera</button>
+      <button class="tab-btn" data-target="env" style="margin-left:auto">Miljo</button>
     </nav>
   </header>
 
   <main>
     <section class="card section" id="env" data-section>
-      <h2>Miljökoll</h2>
+      <h2>Miljokoll</h2>
       <div class="row" id="envTags"></div>
       <div class="status" id="envStatus">Initierar…</div>
     </section>
 
     <section class="card section active" id="vault" data-section>
-      <h2>Säkerhetslås: Lösenord + WebAuthn</h2>
-      <p>Ställ in ett lösenord och (valfritt) koppla en WebAuthn‑nyckel (plattform eller extern) för tvåfaktors‑upplåsning.</p>
+      <h2>Sakerhetslas: Losenord + WebAuthn</h2>
+      <p>Stall in ett losenord och (valfritt) koppla en WebAuthn-nyckel (plattform eller extern) for tva-faktors-upplasning.</p>
       <div class="grid-2">
         <div>
-          <label>Skapa/ändra lösenord</label>
-          <input type="password" id="setPass1" placeholder="Nytt lösenord" autocomplete="new-password" />
-          <input type="password" id="setPass2" placeholder="Bekräfta lösenord" autocomplete="new-password" style="margin-top:8px" />
+          <label>Skapa/andra losenord</label>
+          <input type="password" id="setPass1" placeholder="Nytt losenord" autocomplete="new-password" />
+          <input type="password" id="setPass2" placeholder="Bekrafta losenord" autocomplete="new-password" style="margin-top:8px" />
           <div class="row" style="margin-top:8px">
-            <button class="btn acc" id="setPassBtn">Spara lösenord</button>
+            <button class="btn acc" id="setPassBtn">Spara losenord</button>
             <button class="btn warn" id="exportVaultBtn">Exportera krypterad backup (.keyvault.json)</button>
             <input type="file" id="importVaultFile" accept="application/json" />
           </div>
         </div>
         <div>
-          <label>Lås upp för sessionen</label>
-          <input type="password" id="unlockPass" placeholder="Lösenord för upplåsning" autocomplete="current-password" />
+          <label>Las upp for sessionen</label>
+          <input type="password" id="unlockPass" placeholder="Losenord for upplasning" autocomplete="current-password" />
           <div class="row" style="margin-top:8px">
             <select id="autoLockMins" style="max-width:180px">
-              <option value="1">Auto‑lås: 1 min</option>
-              <option value="5" selected>Auto‑lås: 5 min</option>
-              <option value="15">Auto‑lås: 15 min</option>
-              <option value="0">Ingen auto‑låsning</option>
+              <option value="1">Auto-las: 1 min</option>
+              <option value="5" selected>Auto-las: 5 min</option>
+              <option value="15">Auto-las: 15 min</option>
+              <option value="0">Ingen auto-lasning</option>
             </select>
-            <button class="btn ok" id="unlockBtn">Lås upp</button>
-            <button class="btn" id="lockNowBtn">Lås nu</button>
+            <button class="btn ok" id="unlockBtn">Las upp</button>
+            <button class="btn" id="lockNowBtn">Las nu</button>
             <button class="btn err" id="wipeBtn">Rensa nycklar</button>
           </div>
-          <div class="small" id="lockState">Låsstatus: okänd</div>
+          <div class="small" id="lockState">Lasstatus: okand</div>
         </div>
       </div>
 
       <hr style="border-color: rgba(255,255,255,.08); margin:14px 0" />
       <div class="grid-2">
         <div>
-          <label>WebAuthn‑registrering</label>
+          <label>WebAuthn-registrering</label>
           <select id="webauthnAttachment" style="max-width:220px">
             <option value="platform">Plattform (TouchID/Windows Hello)</option>
             <option value="cross-platform">Extern (YubiKey m.fl.)</option>
             <option value="any" selected>Valfri</option>
           </select>
           <div class="row" style="margin-top:8px">
-            <button class="btn acc" id="regWebAuthnBtn">Registrera WebAuthn‑nyckel</button>
+            <button class="btn acc" id="regWebAuthnBtn">Registrera WebAuthn-nyckel</button>
             <button class="btn" id="testWebAuthnBtn">Testa autentisering</button>
             <button class="btn err" id="removeWebAuthnBtn">Ta bort koppling</button>
           </div>
@@ -106,7 +113,7 @@
         <div>
           <label>Policy</label>
           <div class="row">
-            <label style="display:flex; align-items:center; gap:8px"><input type="checkbox" id="requireWebAuthn" /> Kräv WebAuthn vid upplåsning (2FA)</label>
+            <label style="display:flex; align-items:center; gap:8px"><input type="checkbox" id="requireWebAuthn" /> Krav WebAuthn vid upplasning (2FA)</label>
           </div>
           <div class="small" id="webauthnState">WebAuthn: ej init</div>
         </div>
@@ -116,13 +123,13 @@
 
     <section class="card section" id="keys" data-section>
       <h2>Nycklar (din identitet)</h2>
-      <p>Skapar <strong>kryptering</strong> (RSA‑OAEP 4096) & <strong>signering</strong> (ECDSA P‑256). Privata nycklar sparas endast krypterade i din vault.</p>
+      <p>Skapar kryptering (RSA-OAEP 4096) & signering (ECDSA P-256). Privata nycklar sparas endast krypterade i din vault.</p>
       <div class="row">
-        <button class="btn acc" id="genKeys">Generera båda nyckelparen</button>
+        <button class="btn acc" id="genKeys">Generera bada nyckelparen</button>
       </div>
       <div class="grid-2" style="margin-top:12px">
         <div>
-          <label>Exportera <strong>publik</strong> krypteringsnyckel (JWK)</label>
+          <label>Exportera publik krypteringsnyckel (JWK)</label>
           <textarea id="pubEncOut" readonly placeholder="Exportera…"></textarea>
           <div class="row" style="margin-top:8px">
             <button class="btn" id="exportPubEnc">Exportera</button>
@@ -130,7 +137,7 @@
           </div>
         </div>
         <div>
-          <label>Exportera <strong>publik</strong> signeringsnyckel (JWK)</label>
+          <label>Exportera publik signeringsnyckel (JWK)</label>
           <textarea id="pubSignOut" readonly placeholder="Exportera…"></textarea>
           <div class="row" style="margin-top:8px">
             <button class="btn" id="exportPubSign">Exportera</button>
@@ -142,9 +149,9 @@
     </section>
 
     <section class="card section" id="import" data-section>
-      <h2>Importera mottagarens publika nyckel (för kryptering)</h2>
-      <p>Klistra in JWK (RSA‑OAEP) eller ladda upp en .json med mottagarens <em>publika</em> nyckel.</p>
-      <textarea id="theirPubJwk" placeholder='{"kty":"RSA","n":"…","e":"AQAB",…}'></textarea>
+      <h2>Importera mottagarens publika nyckel (for kryptering)</h2>
+      <p>Klistra in JWK (RSA-OAEP) eller ladda upp en .json med mottagarens publika nyckel.</p>
+      <textarea id="theirPubJwk" placeholder='{"kty":"RSA","n":"…","e":"AQAB"}'></textarea>
       <div class="row" style="margin-top:8px">
         <input type="file" id="theirPubFile" accept="application/json" />
         <button class="btn" id="importTheirPub">Importera nyckel</button>
@@ -153,8 +160,8 @@
     </section>
 
     <section class="card section" id="encrypt" data-section>
-      <h2>Kryptera fil för någon annan</h2>
-      <p>Välj en fil. Den krypteras med en slumpad AES‑nyckel (GCM) som sedan <em>wrap:as</em> (RSA‑OAEP) med den importerade publika nyckeln.</p>
+      <h2>Kryptera fil for nagon annan</h2>
+      <p>Valj en fil. Den krypteras med en slumpad AES-nyckel (GCM) som sedan wrap:as (RSA-OAEP) med den importerade publika nyckeln.</p>
       <input type="file" id="encFile" />
       <div class="row" style="margin-top:8px">
         <button class="btn ok" id="doEncrypt">Kryptera & ladda ned .enc.json</button>
@@ -164,7 +171,7 @@
 
     <section class="card section" id="decrypt" data-section>
       <h2>Dekryptera fil som krypterats till dig</h2>
-      <p>Ladda upp en tidigare skapad <code>.enc.json</code>. <strong>Kräver upplåst session</strong> (lösenord och ev. WebAuthn).</p>
+      <p>Ladda upp en tidigare skapad .enc.json. Kraver upplast session (losenord och ev. WebAuthn).</p>
       <input type="file" id="decFile" accept="application/json" />
       <div class="row" style="margin-top:8px">
         <button class="btn ok" id="doDecrypt">Dekryptera & ladda ned original</button>
@@ -174,7 +181,7 @@
 
     <section class="card section" id="sign" data-section>
       <h2>Signera dokument</h2>
-      <p>Välj fil att signera. ECDSA P‑256 används och en fristående <code>.sig.json</code> skapas. <strong>Kräver upplåst session</strong>.</p>
+      <p>Valj fil att signera. ECDSA P-256 anvands och en fristaende .sig.json skapas. Kraver upplast session.</p>
       <input type="file" id="signFile" />
       <div class="row" style="margin-top:8px">
         <button class="btn ok" id="doSign">Signera & ladda ned .sig.json</button>
@@ -184,7 +191,7 @@
 
     <section class="card section" id="verify" data-section>
       <h2>Verifiera signatur</h2>
-      <p>Ladda upp originalfilen och motsvarande <code>.sig.json</code> för att verifiera.</p>
+      <p>Ladda upp originalfilen och motsvarande .sig.json for att verifiera.</p>
       <div class="row">
         <input type="file" id="verifyFile" />
         <input type="file" id="verifySig" accept="application/json" />
@@ -197,20 +204,21 @@
   </main>
 
   <footer>
-    <p><strong>Tips:</strong> Kör över <code>https://</code> (eller <code>http://localhost</code>). WebAuthn kräver säker kontext och användargest. Backupfilen <code>.keyvault.json</code> är krypterad med ditt lösenord – förvara det säkert.</p>
-    <p class="small">Begränsning: I denna offline‑app används WebAuthn som stark lokal <em>andra faktor</em> (gate). Full kryptografisk server‑verifiering av assertions görs inte. För högsta säkerhet: kombinera med strikt CSP och hårdvarunyckel.</p>
+    <p><strong>Tips:</strong> Kor over https (eller http://localhost). WebAuthn kraver saker kontext. Backupfilen .keyvault.json ar krypterad med ditt losenord – forvara den sakert.</p>
+    <p class="small">Begransning: I denna offline-app anvands WebAuthn som stark lokal andra faktor (gate). Full serversidig verifiering av assertions gor vi inte i denna single-file-app.</p>
     <p class="small">Version <span id="appVersion"></span></p>
   </footer>
 
 <script>
-// ===== Single-file App Bootstrap & Diagnostics =====
+// ===== Bootstrap & Diagnostics (ASCII only) =====
 (function(){
-  var APP_VERSION = 'v1.5.0 (2025-09-03)';
+  'use strict';
+  var APP_VERSION = 'v1.6.1 (2025-09-03)';
   window.__APP_VERSION__ = APP_VERSION;
   function setVersion(){ var el=document.getElementById('appVersion'); if(el) el.textContent = APP_VERSION; }
   if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', setVersion); } else { setVersion(); }
-  function panic(msg){ try{ var el=document.getElementById('envStatus'); if(el){ el.textContent='Fel: '+msg; el.style.color='var(--err)'; el.style.borderColor='rgba(255,107,107,.45)'; } }catch(e){} }
-  window.addEventListener('error', function(e){ panic(e.message||String(e)); });
+  function panic(msg,ln,co){ try{ var el=document.getElementById('envStatus'); if(el){ el.textContent='Fel: '+msg+(ln?(' @ '+ln+':'+(co||'')):''); el.style.color='var(--err)'; el.style.borderColor='rgba(255,107,107,.45)'; } }catch(e){} }
+  window.addEventListener('error', function(e){ panic(e.message||String(e), e.lineno, e.colno); });
   window.addEventListener('unhandledrejection', function(e){ var r=e.reason||{}; panic(r.message? r.message : String(r)); });
 
   // Tabs
@@ -220,9 +228,7 @@
     try{ history.replaceState(null,'','#'+id);}catch(e){}
   }
   function initTabs(){
-    var nav=document.querySelector('nav.tabs'); if(nav){
-      nav.addEventListener('click', function(ev){ var btn=ev.target.closest('.tab-btn'); if(!btn) return; var id=btn.getAttribute('data-target'); if(!id) return; showSection(id); });
-    }
+    var nav=document.querySelector('nav.tabs'); if(nav){ nav.addEventListener('click', function(ev){ var btn=ev.target.closest && ev.target.closest('.tab-btn'); if(!btn) return; var id=btn.getAttribute('data-target'); if(!id) return; showSection(id); }); }
     var start=(location.hash && location.hash.slice(1)) || 'vault'; if(!document.getElementById(start)) start='vault'; showSection(start);
     window.addEventListener('hashchange', function(){ var id=location.hash.slice(1); if(document.getElementById(id)) showSection(id); });
   }
@@ -231,15 +237,16 @@
 </script>
 
 <script>
-// ===== Core App (Web Crypto + Vault + WebAuthn) =====
+// ===== Core App (ASCII only JS) =====
 (function(){
-  // ---- IndexedDB ----
-  var dbp = new Promise(function(resolve, reject){ var open=indexedDB.open('crypto-app-v4',1); open.onupgradeneeded=function(){ open.result.createObjectStore('kv'); }; open.onsuccess=function(){ resolve(open.result); }; open.onerror=function(){ reject(open.error); }; });
-  function dbGet(key){ return dbp.then(function(db){ return new Promise(function(res,rej){ var tx=db.transaction('kv'); var st=tx.objectStore('kv'); var req=st.get(key); req.onsuccess=function(){ res(req.result); }; req.onerror=function(){ rej(req.error); }; }); }); }
-  function dbSet(key,val){ return dbp.then(function(db){ return new Promise(function(res,rej){ var tx=db.transaction('kv','readwrite'); var st=tx.objectStore('kv'); var req=st.put(val,key); req.onsuccess=function(){ res(true); }; req.onerror=function(){ rej(req.error); }; }); }); }
-  function dbDel(key){ return dbp.then(function(db){ return new Promise(function(res,rej){ var tx=db.transaction('kv','readwrite'); var st=tx.objectStore('kv'); var req=st.delete(key); req.onsuccess=function(){ res(true); }; req.onerror=function(){ rej(req.error); }; }); }); }
+  'use strict';
+  // IndexedDB
+  var dbp = new Promise(function(resolve, reject){ try{ var open=indexedDB.open('crypto-app-v5',1); open.onupgradeneeded=function(){ open.result.createObjectStore('kv'); }; open.onsuccess=function(){ resolve(open.result); }; open.onerror=function(){ reject(open.error); }; }catch(e){ reject(e); } });
+  function dbGet(key){ return dbp.then(function(db){ return new Promise(function(res,rej){ try{ var tx=db.transaction('kv'); var st=tx.objectStore('kv'); var req=st.get(key); req.onsuccess=function(){ res(req.result); }; req.onerror=function(){ rej(req.error); }; }catch(e){ rej(e); } }); }); }
+  function dbSet(key,val){ return dbp.then(function(db){ return new Promise(function(res,rej){ try{ var tx=db.transaction('kv','readwrite'); var st=tx.objectStore('kv'); var req=st.put(val,key); req.onsuccess=function(){ res(true); }; req.onerror=function(){ rej(req.error); }; }catch(e){ rej(e); } }); }); }
+  function dbDel(key){ return dbp.then(function(db){ return new Promise(function(res,rej){ try{ var tx=db.transaction('kv','readwrite'); var st=tx.objectStore('kv'); var req=st.delete(key); req.onsuccess=function(){ res(true); }; req.onerror=function(){ rej(req.error); }; }catch(e){ rej(e); } }); }); }
 
-  // ---- Utils ----
+  // Utils (ASCII safe)
   var te = new TextEncoder(); var td = new TextDecoder();
   function toB64(buf){ return btoa(String.fromCharCode.apply(null, new Uint8Array(buf))); }
   function fromB64(b64){ return Uint8Array.from(atob(b64), function(c){ return c.charCodeAt(0); }).buffer; }
@@ -248,49 +255,45 @@
   function fromB64url(str){ var pad='='.repeat((4-(str.length%4))%4); var b64=str.replace(/-/g,'+').replace(/_/g,'/')+pad; return fromB64(b64); }
   function download(name, data, type){ var blob=(data instanceof Blob)? data : new Blob([data],{type:type||'application/octet-stream'}); var url=URL.createObjectURL(blob); var a=document.createElement('a'); a.href=url; a.download=name; a.click(); setTimeout(function(){ URL.revokeObjectURL(url); },1500); }
   function downloadJSON(name, obj){ download(name, new Blob([JSON.stringify(obj,null,2)],{type:'application/json'}), 'application/json'); }
-  function showStatus(sel, msg, tone){ var el=document.querySelector(sel); if(!el) return; el.textContent=msg; el.style.borderColor = tone==='ok'? 'rgba(53,208,127,.45)' : tone==='warn'? 'rgba(255,204,102,.45)' : tone==='err'? 'rgba(255,107,107,.45)' : 'rgba(255,255,255,.15)'; el.style.color = tone==='err'? 'var(--err)' : tone==='warn'? 'var(--warn)' : tone==='ok'? 'var(--ok)' : 'var(--muted)'; }
+  function status(sel, msg, tone){ var el=document.querySelector(sel); if(!el) return; el.textContent=msg; el.style.borderColor = tone==='ok'? 'rgba(53,208,127,.45)' : tone==='warn'? 'rgba(255,204,102,.45)' : tone==='err'? 'rgba(255,107,107,.45)' : 'rgba(255,255,255,.15)'; el.style.color = tone==='err'? 'var(--err)' : tone==='warn'? 'var(--warn)' : tone==='ok'? 'var(--ok)' : 'var(--muted)'; }
 
-  // ---- KDF & Vault (PBKDF2 + AES-GCM) ----
+  // KDF & Vault
   function deriveAesKey(password, salt, iterations){ return crypto.subtle.importKey('raw', te.encode(password), {name:'PBKDF2'}, false, ['deriveKey']).then(function(baseKey){ return crypto.subtle.deriveKey({name:'PBKDF2', salt:salt, iterations:iterations, hash:'SHA-256'}, baseKey, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']); }); }
   function encryptJSON(obj, password, iterations){ iterations = iterations||250000; var salt=crypto.getRandomValues(new Uint8Array(16)); var iv=crypto.getRandomValues(new Uint8Array(12)); return deriveAesKey(password, salt, iterations).then(function(aesKey){ var pt=te.encode(JSON.stringify(obj)); return crypto.subtle.encrypt({name:'AES-GCM', iv:iv}, aesKey, pt).then(function(ct){ return {version:1, createdAt:new Date().toISOString(), kdf:{name:'PBKDF2', hash:'SHA-256', iterations:iterations, salt:toB64(salt)}, enc:{algo:'AES-GCM', iv:toB64(iv), ciphertext:toB64(ct)}}; }); }); }
   function decryptJSON(vaultObj, password){ var kdf=vaultObj.kdf; var part=vaultObj.enc; var salt=new Uint8Array(fromB64(kdf.salt)); var iv=new Uint8Array(fromB64(part.iv)); return deriveAesKey(password, salt, kdf.iterations).then(function(aesKey){ return crypto.subtle.decrypt({name:'AES-GCM', iv:iv}, aesKey, fromB64(part.ciphertext)); }).then(function(pt){ return JSON.parse(td.decode(pt)); }); }
 
-  // ---- Global state ----
-  var unlocked=false, autoLockTimer=null, autoLockMinutes=5, lastActivity=Date.now();
+  // State
+  var unlocked=false, autoLockTimer=null, autoLockMinutes=5; var lastActivity=Date.now();
   var theirEncPubKey=null; var priv={ encKey:null, signKey:null }; var pubJwk={ enc:null, sign:null };
   var webauthnCred=null; var webauthnRequired=false;
-  function touch(){ lastActivity=Date.now(); scheduleAutoLock(); }
-  function scheduleAutoLock(){ if(autoLockTimer) clearTimeout(autoLockTimer); if(autoLockMinutes && autoLockMinutes>0){ autoLockTimer=setTimeout(lockNow, autoLockMinutes*60*1000); } }
-  function setLockState(){ var s=document.getElementById('lockState'); if(!s) return; s.textContent = 'Låsstatus: '+(unlocked? 'Upplåst':'Låst') + (unlocked && autoLockMinutes? ' (auto‑lås om ~'+autoLockMinutes+' min)' : '') + (webauthnRequired? ' · 2FA (WebAuthn krävs)':''); }
-  function lockNow(){ priv.encKey=null; priv.signKey=null; unlocked=false; setLockState(); showStatus('#vaultStatus','Låst.','ok'); }
+  function touch(){ lastActivity=Date.now(); if(autoLockTimer) clearTimeout(autoLockTimer); if(autoLockMinutes && autoLockMinutes>0){ autoLockTimer=setTimeout(lockNow, autoLockMinutes*60*1000); } }
+  function setLockState(){ var s=document.getElementById('lockState'); if(!s) return; s.textContent = 'Lasstatus: '+(unlocked? 'Upplast':'Last') + (unlocked && autoLockMinutes? ' (auto-las om ~'+autoLockMinutes+' min)' : '') + (webauthnRequired? ' · 2FA (WebAuthn krav)':''); }
+  function lockNow(){ priv.encKey=null; priv.signKey=null; unlocked=false; setLockState(); status('#vaultStatus','Last.','ok'); }
 
-  // ---- Miljökoll ----
+  // Env
   function ensureEnv(){
-    try{
-      var tags=document.getElementById('envTags'); var secure=window.isSecureContext; var hasCrypto=!!(window.crypto && crypto.subtle); var iDB='indexedDB' in window; var hasWebAuthn=('PublicKeyCredential' in window);
-      function tag(label, ok){ var span=document.createElement('span'); span.className='tag'; span.style.borderColor = ok? 'rgba(122,162,255,.45)':'rgba(255,107,107,.45)'; span.innerHTML = (ok? '✅ ':'⚠️ ')+label; tags && tags.appendChild(span); }
-      tag(secure? 'SecureContext: OK':'Kräver HTTPS/localhost', secure);
-      tag(hasCrypto? 'Web Crypto: OK':'Web Crypto: saknas', hasCrypto);
-      tag(iDB? 'IndexedDB: OK':'IndexedDB: saknas', iDB);
-      tag(hasWebAuthn? 'WebAuthn API: OK':'WebAuthn: saknas', hasWebAuthn);
-      if (hasWebAuthn && PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable){
-        PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then(function(uv){ tag(uv? 'Plattformsnyckel: Tillgänglig':'Plattformsnyckel: Ej tillgänglig', uv); });
-      }
-      showStatus('#envStatus','URL: '+location.href+'
-Säker kontext: '+secure+'
-Web Crypto: '+hasCrypto+'
+    try{ var tags=document.getElementById('envTags'); var secure=window.isSecureContext; var hasCrypto=!!(window.crypto && crypto.subtle); var iDB='indexedDB' in window; var hasWebAuthn=('PublicKeyCredential' in window);
+      function tag(label, ok){ var span=document.createElement('span'); span.className='tag'; span.style.borderColor = ok? 'rgba(122,162,255,.45)':'rgba(255,107,107,.45)'; span.textContent = (ok? 'OK: ':'! ')+label; if(tags) tags.appendChild(span); }
+      tag(secure? 'SecureContext':'Needs HTTPS/localhost', secure);
+      tag(hasCrypto? 'WebCrypto':'No WebCrypto', hasCrypto);
+      tag(iDB? 'IndexedDB':'No IndexedDB', iDB);
+      tag(hasWebAuthn? 'WebAuthn API':'No WebAuthn', hasWebAuthn);
+      if (hasWebAuthn && PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable){ PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then(function(uv){ tag(uv? 'Platform key':'No platform key', uv); }); }
+      status('#envStatus','URL: '+location.href+'
+Secure: '+secure+'
+WebCrypto: '+hasCrypto+'
 IndexedDB: '+iDB);
-    }catch(e){ showStatus('#envStatus','Fel i miljökoll: '+e.message,'err'); }
+    }catch(e){ status('#envStatus','Env error: '+e.message,'err'); }
   }
 
-  // ---- Nyckelhantering ----
+  // Keys
   function generateKeys(){
     var p1=document.getElementById('setPass1').value || document.getElementById('unlockPass').value;
     var p2=document.getElementById('setPass2').value || document.getElementById('unlockPass').value;
-    if(!p1 || p1!==p2){ showStatus('#keysStatus','Ställ in ett lösenord (två lika fält) innan generering.','warn'); return; }
-    showStatus('#keysStatus','Genererar RSA‑OAEP 4096…');
+    if(!p1 || p1!==p2){ status('#keysStatus','Set password (two equal fields) before generating.','warn'); return; }
+    status('#keysStatus','Generating RSA-OAEP 4096...');
     crypto.subtle.generateKey({name:'RSA-OAEP', modulusLength:4096, publicExponent:new Uint8Array([1,0,1]), hash:'SHA-256'}, true, ['encrypt','decrypt','unwrapKey']).then(function(encPair){
-      showStatus('#keysStatus','Genererar ECDSA P‑256…');
+      status('#keysStatus','Generating ECDSA P-256...');
       crypto.subtle.generateKey({name:'ECDSA', namedCurve:'P-256'}, true, ['sign','verify']).then(function(signPair){
         Promise.all([
           crypto.subtle.exportKey('jwk', encPair.privateKey),
@@ -302,77 +305,65 @@ IndexedDB: '+iDB);
           pubJwk.enc=encPub; pubJwk.sign=signPub; dbSet('pub.enc.jwk', encPub); dbSet('pub.sign.jwk', signPub);
           encryptJSON({encPrivJwk:encPrivJwk, signPrivJwk:signPrivJwk}, p1).then(function(vault){ dbSet('vault', vault).then(function(){
             priv.encKey=null; priv.signKey=null; unlocked=false; setLockState();
-            showStatus('#keysStatus','Klar: nycklar skapade och lagrade i krypterad vault ✔️','ok');
-            showStatus('#vaultStatus','Vault skapad/uppdaterad. Exportera backup vid behov.','ok');
+            status('#keysStatus','Done: keys generated and stored in encrypted vault.','ok');
+            status('#vaultStatus','Vault updated. Consider exporting backup.','ok');
           }); });
         });
       });
-    }).catch(function(e){ showStatus('#keysStatus','Fel vid generering: '+e.message,'err'); });
+    }).catch(function(e){ status('#keysStatus','Generate error: '+e.message,'err'); });
   }
-  function exportPubEnc(){ (pubJwk.enc? Promise.resolve(pubJwk.enc) : dbGet('pub.enc.jwk')).then(function(jwk){ if(!jwk) return showStatus('#keysStatus','Ingen publik krypteringsnyckel – generera först.','warn'); document.getElementById('pubEncOut').value = JSON.stringify(jwk, null, 2); }); }
-  function exportPubSign(){ (pubJwk.sign? Promise.resolve(pubJwk.sign) : dbGet('pub.sign.jwk')).then(function(jwk){ if(!jwk) return showStatus('#keysStatus','Ingen publik signeringsnyckel – generera först.','warn'); document.getElementById('pubSignOut').value = JSON.stringify(jwk, null, 2); }); }
+  function exportPubEnc(){ (pubJwk.enc? Promise.resolve(pubJwk.enc) : dbGet('pub.enc.jwk')).then(function(jwk){ if(!jwk) return status('#keysStatus','No public encryption key. Generate first.','warn'); document.getElementById('pubEncOut').value = JSON.stringify(jwk, null, 2); }); }
+  function exportPubSign(){ (pubJwk.sign? Promise.resolve(pubJwk.sign) : dbGet('pub.sign.jwk')).then(function(jwk){ if(!jwk) return status('#keysStatus','No public signing key. Generate first.','warn'); document.getElementById('pubSignOut').value = JSON.stringify(jwk, null, 2); }); }
 
-  // ---- Vault: lösenord ----
+  // Vault: password
   function setPassword(){
-    var p1=document.getElementById('setPass1').value.trim(); var p2=document.getElementById('setPass2').value.trim(); if(!p1||p1!==p2){ showStatus('#vaultStatus','Lösenorden måste vara ifyllda och lika.','warn'); return; }
-    dbGet('vault').then(function(existing){ if(existing){
-      var oldPass=document.getElementById('unlockPass').value || p1; decryptJSON(existing, oldPass).then(function(payload){ encryptJSON(payload, p1).then(function(newVault){ dbSet('vault', newVault).then(function(){ showStatus('#vaultStatus','Lösenord uppdaterat och vault re‑krypterad.','ok'); }); }); }).catch(function(){ showStatus('#vaultStatus','Kunde inte uppdatera – lås upp med det gamla lösenordet först.','err'); });
-    } else { encryptJSON({}, p1).then(function(newVault){ dbSet('vault', newVault).then(function(){ showStatus('#vaultStatus','Lösenord satt. Generera nycklar för att fylla din vault.','ok'); }); }); } });
+    var p1=document.getElementById('setPass1').value.trim(); var p2=document.getElementById('setPass2').value.trim(); if(!p1||p1!==p2){ status('#vaultStatus','Passwords must be filled and match.','warn'); return; }
+    dbGet('vault').then(function(existing){ if(existing){ var oldPass=document.getElementById('unlockPass').value || p1; decryptJSON(existing, oldPass).then(function(payload){ encryptJSON(payload, p1).then(function(newVault){ dbSet('vault', newVault).then(function(){ status('#vaultStatus','Password updated and vault re-encrypted.','ok'); }); }); }).catch(function(){ status('#vaultStatus','Cannot update - unlock with old password first.','err'); }); } else { encryptJSON({}, p1).then(function(newVault){ dbSet('vault', newVault).then(function(){ status('#vaultStatus','Password set. Generate keys next.','ok'); }); }); } });
   }
   function unlockNow(){
-    var pass=document.getElementById('unlockPass').value.trim(); if(!pass){ showStatus('#vaultStatus','Fyll i lösenord.','warn'); return; }
-    dbGet('vault').then(function(vault){ if(!vault) return showStatus('#vaultStatus','Ingen vault hittades – skapa nycklar först.','warn'); decryptJSON(vault, pass).then(function(payload){ if(!payload.encPrivJwk||!payload.signPrivJwk) return showStatus('#vaultStatus','Vault saknar nycklar. Generera dem först.','warn');
-      function importKeys(){ Promise.all([
+    var pass=document.getElementById('unlockPass').value.trim(); if(!pass){ status('#vaultStatus','Fill password.','warn'); return; }
+    dbGet('vault').then(function(vault){ if(!vault) return status('#vaultStatus','No vault. Generate keys first.','warn'); decryptJSON(vault, pass).then(function(payload){ if(!payload.encPrivJwk||!payload.signPrivJwk) return status('#vaultStatus','Vault has no keys.','warn'); function importKeys(){ Promise.all([
         crypto.subtle.importKey('jwk', payload.encPrivJwk, {name:'RSA-OAEP', hash:'SHA-256'}, false, ['decrypt','unwrapKey']),
         crypto.subtle.importKey('jwk', payload.signPrivJwk, {name:'ECDSA', namedCurve:'P-256'}, false, ['sign'])
-      ]).then(function(k){ priv.encKey=k[0]; priv.signKey=k[1]; unlocked=true; touch(); setLockState(); showStatus('#vaultStatus','Upplåst.','ok'); }); }
-      if(webauthnRequired){ webauthnAssert().then(function(ok){ if(ok) importKeys(); else showStatus('#vaultStatus','WebAuthn misslyckades eller avbröts.','err'); }); } else { importKeys(); }
-    }).catch(function(e){ showStatus('#vaultStatus','Fel vid upplåsning: '+e.message,'err'); }); });
+      ]).then(function(k){ priv.encKey=k[0]; priv.signKey=k[1]; unlocked=true; touch(); setLockState(); status('#vaultStatus','Unlocked.','ok'); }); }
+      if(webauthnRequired){ webauthnAssert().then(function(ok){ if(ok) importKeys(); else status('#vaultStatus','WebAuthn failed or canceled.','err'); }); } else { importKeys(); }
+    }).catch(function(e){ status('#vaultStatus','Unlock error: '+e.message,'err'); }); });
   }
-  function exportVault(){ dbGet('vault').then(function(v){ if(!v) return showStatus('#vaultStatus','Ingen vault att exportera.','warn'); downloadJSON('keys.keyvault.json', v); }); }
-  function importVaultFromFile(ev){ var f=ev.target.files[0]; if(!f) return; f.text().then(function(txt){ try{ var v=JSON.parse(txt); if(!v.enc||!v.kdf) throw new Error('Ogiltig vault'); dbSet('vault', v).then(function(){ showStatus('#vaultStatus','Vault importerad ✔️','ok'); }); } catch(e){ showStatus('#vaultStatus','Fel vid import: '+e.message,'err'); } }); }
-  function wipeAll(){ Promise.all([dbDel('vault'), dbDel('pub.enc.jwk'), dbDel('pub.sign.jwk'), dbDel('webauthn.cred'), dbDel('webauthn.required')]).then(function(){ priv.encKey=null; priv.signKey=null; pubJwk={enc:null,sign:null}; webauthnCred=null; webauthnRequired=false; unlocked=false; setLockState(); showStatus('#vaultStatus','Allt rensat från denna webbläsare.','ok'); updateWebAuthnState(); }); }
+  function exportVault(){ dbGet('vault').then(function(v){ if(!v) return status('#vaultStatus','No vault to export.','warn'); downloadJSON('keys.keyvault.json', v); }); }
+  function importVaultFromFile(ev){ var f=ev.target.files[0]; if(!f) return; f.text().then(function(txt){ try{ var v=JSON.parse(txt); if(!v.enc||!v.kdf) throw new Error('Invalid vault'); dbSet('vault', v).then(function(){ status('#vaultStatus','Vault imported.','ok'); }); } catch(e){ status('#vaultStatus','Import error: '+e.message,'err'); } }); }
+  function wipeAll(){ Promise.all([dbDel('vault'), dbDel('pub.enc.jwk'), dbDel('pub.sign.jwk'), dbDel('webauthn.cred'), dbDel('webauthn.required')]).then(function(){ priv.encKey=null; priv.signKey=null; pubJwk={enc:null,sign:null}; webauthnCred=null; webauthnRequired=false; unlocked=false; setLockState(); status('#vaultStatus','All cleared from this browser.','ok'); updateWebAuthnState(); }); }
 
-  // ---- WebAuthn helpers ----
+  // WebAuthn
   function webauthnAvailable(){ return ('PublicKeyCredential' in window); }
   function getRpId(){ try{ return location.hostname || undefined; } catch(e){ return undefined; } }
-  function registerWebAuthn(){ if(!webauthnAvailable()) return showStatus('#vaultStatus','WebAuthn stöds ej i denna miljö.','err');
-    try{
-      var userId = crypto.getRandomValues(new Uint8Array(16)); var challenge = crypto.getRandomValues(new Uint8Array(32));
-      var attachSel = document.getElementById('webauthnAttachment').value; var authSel = attachSel==='any'? { userVerification:'required' } : { userVerification:'required', authenticatorAttachment: attachSel };
-      var algs=[-7,-257,-8,-259].map(function(a){ return {type:'public-key', alg:a}; });
-      var publicKey={ challenge:challenge, rp:{name:'Local Crypto App', id:getRpId()}, user:{ id:userId, name:'local-user', displayName:'Local User' }, pubKeyCredParams:algs, timeout:60000, authenticatorSelection:authSel, attestation:'none' };
-      navigator.credentials.create({ publicKey: publicKey }).then(function(cred){ var rawId=new Uint8Array(cred.rawId); var store={ id: toB64url(rawId), userId: toB64url(userId) }; dbSet('webauthn.cred', store).then(function(){ webauthnCred=store; updateWebAuthnState(); showStatus('#vaultStatus','WebAuthn‑nyckel registrerad ✔️','ok'); }); }).catch(function(e){ showStatus('#vaultStatus','Registrering misslyckades: '+e.message,'err'); });
-    }catch(e){ showStatus('#vaultStatus','Registrering misslyckades: '+e.message,'err'); }
-  }
+  function registerWebAuthn(){ if(!webauthnAvailable()) return status('#vaultStatus','WebAuthn not supported here.','err'); try{ var userId = crypto.getRandomValues(new Uint8Array(16)); var challenge = crypto.getRandomValues(new Uint8Array(32)); var attachSel = document.getElementById('webauthnAttachment').value; var authSel = attachSel==='any'? { userVerification:'required' } : { userVerification:'required', authenticatorAttachment: attachSel }; var algs=[-7,-257,-8,-259].map(function(a){ return {type:'public-key', alg:a}; }); var publicKey={ challenge:challenge, rp:{name:'Local Crypto App', id:getRpId()}, user:{ id:userId, name:'local-user', displayName:'Local User' }, pubKeyCredParams:algs, timeout:60000, authenticatorSelection:authSel, attestation:'none' }; navigator.credentials.create({ publicKey: publicKey }).then(function(cred){ var rawId=new Uint8Array(cred.rawId); var store={ id: toB64url(rawId), userId: toB64url(userId) }; dbSet('webauthn.cred', store).then(function(){ webauthnCred=store; updateWebAuthnState(); status('#vaultStatus','WebAuthn key registered.','ok'); }); }).catch(function(e){ status('#vaultStatus','Registration failed: '+e.message,'err'); }); }catch(e){ status('#vaultStatus','Registration failed: '+e.message,'err'); } }
   function webauthnAssert(){ return new Promise(function(resolve){ try{ var info=webauthnCred; var p=(info? Promise.resolve(info) : dbGet('webauthn.cred')); p.then(function(i){ if(!i) return resolve(false); var challenge=crypto.getRandomValues(new Uint8Array(32)); var allow=[{ type:'public-key', id:new Uint8Array(fromB64url(i.id)) }]; navigator.credentials.get({ publicKey:{ challenge:challenge, allowCredentials:allow, userVerification:'required', timeout:60000, rpId:getRpId() } }).then(function(assertion){ resolve(!!assertion); }).catch(function(){ resolve(false); }); }); }catch(e){ resolve(false); } }); }
-  function testWebAuthn(){ webauthnAssert().then(function(ok){ showStatus('#vaultStatus', ok? 'WebAuthn‑autentisering OK ✔️' : 'WebAuthn‑autentisering misslyckades/avbröts.', ok? 'ok':'err'); }); }
-  function removeWebAuthn(){ dbDel('webauthn.cred').then(function(){ webauthnCred=null; showStatus('#vaultStatus','WebAuthn‑koppling borttagen.','ok'); updateWebAuthnState(); }); }
+  function testWebAuthn(){ webauthnAssert().then(function(ok){ status('#vaultStatus', ok? 'WebAuthn OK' : 'WebAuthn failed/canceled', ok? 'ok':'err'); }); }
+  function removeWebAuthn(){ dbDel('webauthn.cred').then(function(){ webauthnCred=null; status('#vaultStatus','WebAuthn removed.','ok'); updateWebAuthnState(); }); }
   function toggleRequireWebAuthn(){ webauthnRequired = !!document.getElementById('requireWebAuthn').checked; dbSet('webauthn.required', webauthnRequired).then(updateWebAuthnState); }
-  function updateWebAuthnState(){ Promise.all([ dbGet('webauthn.cred'), dbGet('webauthn.required') ]).then(function(arr){ var cred=arr[0]; var req=arr[1]===true || webauthnRequired; webauthnCred=cred||null; webauthnRequired=!!req; var lab=document.getElementById('webauthnState'); if(lab) lab.textContent = 'WebAuthn: '+(webauthnCred? 'registrerad ✔️':'inte registrerad')+' · Krav: '+(webauthnRequired? 'på':'av'); var cb=document.getElementById('requireWebAuthn'); if(cb) cb.checked = webauthnRequired; setLockState(); }); }
+  function updateWebAuthnState(){ Promise.all([ dbGet('webauthn.cred'), dbGet('webauthn.required') ]).then(function(arr){ var cred=arr[0]; var req=arr[1]===true || webauthnRequired; webauthnCred=cred||null; webauthnRequired=!!req; var lab=document.getElementById('webauthnState'); if(lab) lab.textContent = 'WebAuthn: '+(webauthnCred? 'registered':'not set')+' · req: '+(webauthnRequired? 'on':'off'); var cb=document.getElementById('requireWebAuthn'); if(cb) cb.checked = webauthnRequired; setLockState(); }); }
 
-  // ---- Import recipient public key ----
-  function importRecipientFromText(){ try{ var raw=document.getElementById('theirPubJwk').value.trim(); if(!raw) return showStatus('#importStatus','Klistra in JWK först.','warn'); var jwk=JSON.parse(raw); if(jwk.kty!=='RSA') throw new Error('Måste vara RSA JWK för RSA‑OAEP.'); crypto.subtle.importKey('jwk', jwk, {name:'RSA-OAEP', hash:'SHA-256'}, true, ['encrypt']).then(function(k){ theirEncPubKey=k; showStatus('#importStatus','Mottagarens publika nyckel importerad ✔️','ok'); }); } catch(e){ showStatus('#importStatus','Fel vid import: '+e.message,'err'); } }
-  function theirPubFileChanged(e){ var f=e.target.files[0]; if(!f) return; f.text().then(function(txt){ document.getElementById('theirPubJwk').value=txt; importRecipientFromText(); }).catch(function(e2){ showStatus('#importStatus','Fel vid fil‑läsning: '+e2.message,'err'); }); }
+  // Recipient pubkey
+  function importRecipientFromText(){ try{ var raw=document.getElementById('theirPubJwk').value.trim(); if(!raw) return status('#importStatus','Paste JWK first.','warn'); var jwk=JSON.parse(raw); if(jwk.kty!=='RSA') throw new Error('Need RSA JWK for RSA-OAEP'); crypto.subtle.importKey('jwk', jwk, {name:'RSA-OAEP', hash:'SHA-256'}, true, ['encrypt']).then(function(k){ theirEncPubKey=k; status('#importStatus','Public key imported.','ok'); }); } catch(e){ status('#importStatus','Import error: '+e.message,'err'); } }
+  function theirPubFileChanged(e){ var f=e.target.files[0]; if(!f) return; f.text().then(function(txt){ document.getElementById('theirPubJwk').value=txt; importRecipientFromText(); }).catch(function(e2){ status('#importStatus','File read error: '+e2.message,'err'); }); }
 
-  // ---- Encrypt / Decrypt ----
-  function encryptForRecipient(){ var file=document.getElementById('encFile').files[0]; if(!file) return showStatus('#encStatus','Välj en fil att kryptera.','warn'); if(!theirEncPubKey) return showStatus('#encStatus','Importera mottagarens publika nyckel först.','warn');
-    showStatus('#encStatus','Läser fil…'); file.arrayBuffer().then(function(data){ crypto.subtle.generateKey({name:'AES-GCM', length:256}, true, ['encrypt','decrypt']).then(function(aesKey){ var iv=crypto.getRandomValues(new Uint8Array(12)); showStatus('#encStatus','Krypterar (AES‑GCM)…'); crypto.subtle.encrypt({name:'AES-GCM', iv:iv}, aesKey, data).then(function(ct){ showStatus('#encStatus','Wrappar AES‑nyckel (RSA‑OAEP)…'); crypto.subtle.wrapKey('raw', aesKey, theirEncPubKey, {name:'RSA-OAEP'}).then(function(wrapped){ var pkg={ type:'hybrid-enc', encAlgo:'AES-GCM', iv:toB64(iv), wrappedKeyAlgo:'RSA-OAEP', wrappedKey:toB64(wrapped), ciphertext:toB64(ct), filename:file.name, mime:file.type||'application/octet-stream', size:file.size, createdAt:new Date().toISOString() }; downloadJSON(file.name+'.enc.json', pkg); showStatus('#encStatus','Klar: filen är krypterad och nedladdad ✔️','ok'); }); }); }); }).catch(function(e){ showStatus('#encStatus','Fel vid kryptering: '+e.message,'err'); }); }
-  function ensureUnlocked(opSel){ if(unlocked && priv.encKey && priv.signKey) return true; showStatus(opSel||'#vaultStatus','Åtgärden kräver upplåst session. Skriv lösenordet och klicka "Lås upp".','warn'); return false; }
-  function decryptForMe(){ if(!ensureUnlocked('#decStatus')) return; var file=document.getElementById('decFile').files[0]; if(!file) return showStatus('#decStatus','Välj en .enc.json att dekryptera.','warn'); file.text().then(function(txt){ try{ var pkg=JSON.parse(txt); if(pkg.type!=='hybrid-enc') throw new Error('Okänt paketformat.'); var wrapped=fromB64(pkg.wrappedKey); var iv=new Uint8Array(fromB64(pkg.iv)); touch(); showStatus('#decStatus','Återställer AES‑nyckel…'); crypto.subtle.unwrapKey('raw', wrapped, priv.encKey, {name:'RSA-OAEP'}, {name:'AES-GCM', length:256}, true, ['decrypt']).then(function(aesKey){ showStatus('#decStatus','Dekrypterar (AES‑GCM)…'); crypto.subtle.decrypt({name:'AES-GCM', iv:iv}, aesKey, fromB64(pkg.ciphertext)).then(function(pt){ var outBlob=new Blob([pt], {type: pkg.mime||'application/octet-stream'}); var outName=(pkg.filename||'fil')+'.decrypted'; download(outName, outBlob, outBlob.type); showStatus('#decStatus','Klar: filen är dekrypterad ✔️','ok'); }); }); } catch(e){ showStatus('#decStatus','Fel vid dekryptering: '+e.message,'err'); } }).catch(function(e){ showStatus('#decStatus','Fel: '+e.message,'err'); }); }
+  // Encrypt / Decrypt
+  function encryptForRecipient(){ var file=document.getElementById('encFile').files[0]; if(!file) return status('#encStatus','Select file to encrypt.','warn'); if(!theirEncPubKey) return status('#encStatus','Import recipients public key first.','warn'); status('#encStatus','Reading file...'); file.arrayBuffer().then(function(data){ crypto.subtle.generateKey({name:'AES-GCM', length:256}, true, ['encrypt','decrypt']).then(function(aesKey){ var iv=crypto.getRandomValues(new Uint8Array(12)); status('#encStatus','Encrypting...'); crypto.subtle.encrypt({name:'AES-GCM', iv:iv}, aesKey, data).then(function(ct){ status('#encStatus','Wrapping AES key...'); crypto.subtle.wrapKey('raw', aesKey, theirEncPubKey, {name:'RSA-OAEP'}).then(function(wrapped){ var pkg={ type:'hybrid-enc', encAlgo:'AES-GCM', iv:toB64(iv), wrappedKeyAlgo:'RSA-OAEP', wrappedKey:toB64(wrapped), ciphertext:toB64(ct), filename:file.name, mime:file.type||'application/octet-stream', size:file.size, createdAt:new Date().toISOString() }; downloadJSON(file.name+'.enc.json', pkg); status('#encStatus','Done: encrypted and downloaded.','ok'); }); }); }); }).catch(function(e){ status('#encStatus','Encrypt error: '+e.message,'err'); }); }
+  function ensureUnlocked(opSel){ if(unlocked && priv.encKey && priv.signKey) return true; status(opSel||'#vaultStatus','This action requires unlocked session.','warn'); return false; }
+  function decryptForMe(){ if(!ensureUnlocked('#decStatus')) return; var file=document.getElementById('decFile').files[0]; if(!file) return status('#decStatus','Select .enc.json to decrypt.','warn'); file.text().then(function(txt){ try{ var pkg=JSON.parse(txt); if(pkg.type!=='hybrid-enc') throw new Error('Unknown format'); var wrapped=fromB64(pkg.wrappedKey); var iv=new Uint8Array(fromB64(pkg.iv)); touch(); status('#decStatus','Unwrapping AES key...'); crypto.subtle.unwrapKey('raw', wrapped, priv.encKey, {name:'RSA-OAEP'}, {name:'AES-GCM', length:256}, true, ['decrypt']).then(function(aesKey){ status('#decStatus','Decrypting...'); crypto.subtle.decrypt({name:'AES-GCM', iv:iv}, aesKey, fromB64(pkg.ciphertext)).then(function(pt){ var outBlob=new Blob([pt], {type: pkg.mime||'application/octet-stream'}); var outName=(pkg.filename||'file')+'.decrypted'; download(outName, outBlob, outBlob.type); status('#decStatus','Done: decrypted.','ok'); }); }); } catch(e){ status('#decStatus','Decrypt error: '+e.message,'err'); } }).catch(function(e){ status('#decStatus','Error: '+e.message,'err'); }); }
 
-  // ---- Sign & Verify ----
-  function signFile(){ if(!ensureUnlocked('#signStatus')) return; var file=document.getElementById('signFile').files[0]; if(!file) return showStatus('#signStatus','Välj en fil att signera.','warn'); showStatus('#signStatus','Läser fil…'); file.arrayBuffer().then(function(data){ crypto.subtle.digest('SHA-256', data).then(function(digest){ touch(); showStatus('#signStatus','Signerar (ECDSA P‑256)…'); crypto.subtle.sign({name:'ECDSA', hash:'SHA-256'}, priv.signKey, digest).then(function(sig){ (pubJwk.sign? Promise.resolve(pubJwk.sign) : dbGet('pub.sign.jwk')).then(function(pub){ var sigPkg={ type:'ecdsa-detached-sig', algorithm:'ECDSA-P256-SHA256', file:{ name:file.name, size:file.size, mime:file.type||'application/octet-stream' }, sha256:toHex(digest), signature:toB64(sig), publicKeyJwk: pub, createdAt:new Date().toISOString() }; downloadJSON(file.name+'.sig.json', sigPkg); showStatus('#signStatus','Klar: signatur skapad ✔️','ok'); }); }); }); }).catch(function(e){ showStatus('#signStatus','Fel vid signering: '+e.message,'err'); }); }
-  function verifySig(){ var f=document.getElementById('verifyFile').files[0]; var s=document.getElementById('verifySig').files[0]; if(!f||!s) return showStatus('#verifyStatus','Välj både fil och .sig.json.','warn'); Promise.all([f.arrayBuffer(), s.text()]).then(function(arr){ var data=arr[0]; var sigTxt=arr[1]; try{ var sigPkg=JSON.parse(sigTxt); if(sigPkg.type!=='ecdsa-detached-sig') throw new Error('Okänt signaturformat.'); crypto.subtle.digest('SHA-256', data).then(function(digest){ if(toHex(digest)!==sigPkg.sha256) return showStatus('#verifyStatus','Hash mismatch – fel fil?','err'); crypto.subtle.importKey('jwk', sigPkg.publicKeyJwk, {name:'ECDSA', namedCurve:'P-256'}, true, ['verify']).then(function(pubKey){ crypto.subtle.verify({name:'ECDSA', hash:'SHA-256'}, pubKey, fromB64(sigPkg.signature), digest).then(function(ok){ showStatus('#verifyStatus', ok? 'Signaturen är GILTIG ✔️' : 'Ogiltig signatur ✖️', ok? 'ok':'err'); }); }); }); } catch(e){ showStatus('#verifyStatus','Fel vid verifiering: '+e.message,'err'); } }); }
+  // Sign & Verify
+  function signFile(){ if(!ensureUnlocked('#signStatus')) return; var file=document.getElementById('signFile').files[0]; if(!file) return status('#signStatus','Select file to sign.','warn'); status('#signStatus','Reading file...'); file.arrayBuffer().then(function(data){ crypto.subtle.digest('SHA-256', data).then(function(digest){ touch(); status('#signStatus','Signing...'); crypto.subtle.sign({name:'ECDSA', hash:'SHA-256'}, priv.signKey, digest).then(function(sig){ (pubJwk.sign? Promise.resolve(pubJwk.sign) : dbGet('pub.sign.jwk')).then(function(pub){ var sigPkg={ type:'ecdsa-detached-sig', algorithm:'ECDSA-P256-SHA256', file:{ name:file.name, size:file.size, mime:file.type||'application/octet-stream' }, sha256:toHex(digest), signature:toB64(sig), publicKeyJwk: pub, createdAt:new Date().toISOString() }; downloadJSON(file.name+'.sig.json', sigPkg); status('#signStatus','Done: signature saved.','ok'); }); }); }); }).catch(function(e){ status('#signStatus','Sign error: '+e.message,'err'); }); }
+  function verifySig(){ var f=document.getElementById('verifyFile').files[0]; var s=document.getElementById('verifySig').files[0]; if(!f||!s) return status('#verifyStatus','Select both file and .sig.json.','warn'); Promise.all([f.arrayBuffer(), s.text()]).then(function(arr){ var data=arr[0]; var sigTxt=arr[1]; try{ var sigPkg=JSON.parse(sigTxt); if(sigPkg.type!=='ecdsa-detached-sig') throw new Error('Unknown signature format'); crypto.subtle.digest('SHA-256', data).then(function(digest){ if(toHex(digest)!==sigPkg.sha256) return status('#verifyStatus','Hash mismatch (wrong file?).','err'); crypto.subtle.importKey('jwk', sigPkg.publicKeyJwk, {name:'ECDSA', namedCurve:'P-256'}, true, ['verify']).then(function(pubKey){ crypto.subtle.verify({name:'ECDSA', hash:'SHA-256'}, pubKey, fromB64(sigPkg.signature), digest).then(function(ok){ status('#verifyStatus', ok? 'Signature VALID' : 'Signature INVALID', ok? 'ok':'err'); }); }); }); } catch(e){ status('#verifyStatus','Verify error: '+e.message,'err'); } }); }
 
-  // ---- Wire up ----
+  // Wire up
   function on(id, ev, fn){ var el=document.getElementById(id); if(el) el.addEventListener(ev, fn); }
   function wire(){
     on('genKeys','click', generateKeys);
     on('exportPubEnc','click', exportPubEnc);
     on('exportPubSign','click', exportPubSign);
-    on('downloadPubEnc','click', function(){ var val=document.getElementById('pubEncOut').value.trim(); if(!val) return showStatus('#keysStatus','Exportera först.','warn'); download('public-encryption-key.pubkey.json', new Blob([val],{type:'application/json'}), 'application/json'); });
-    on('downloadPubSign','click', function(){ var val=document.getElementById('pubSignOut').value.trim(); if(!val) return showStatus('#keysStatus','Exportera först.','warn'); download('public-signing-key.pubsigkey.json', new Blob([val],{type:'application/json'}), 'application/json'); });
+    on('downloadPubEnc','click', function(){ var val=document.getElementById('pubEncOut').value.trim(); if(!val) return status('#keysStatus','Export first.','warn'); download('public-encryption-key.pubkey.json', new Blob([val],{type:'application/json'}), 'application/json'); });
+    on('downloadPubSign','click', function(){ var val=document.getElementById('pubSignOut').value.trim(); if(!val) return status('#keysStatus','Export first.','warn'); download('public-signing-key.pubsigkey.json', new Blob([val],{type:'application/json'}), 'application/json'); });
     on('importTheirPub','click', importRecipientFromText);
     on('theirPubFile','change', theirPubFileChanged);
     on('doEncrypt','click', encryptForRecipient);
@@ -389,20 +380,13 @@ IndexedDB: '+iDB);
     on('testWebAuthnBtn','click', testWebAuthn);
     on('removeWebAuthnBtn','click', removeWebAuthn);
     on('requireWebAuthn','change', toggleRequireWebAuthn);
-
     document.addEventListener('click', touch); document.addEventListener('keydown', touch);
   }
 
-  // ---- Init ----
-  function init(){
-    ensureEnv();
-    Promise.all([ dbGet('pub.enc.jwk'), dbGet('pub.sign.jwk'), dbGet('webauthn.cred'), dbGet('webauthn.required'), dbGet('vault') ]).then(function(arr){
-      pubJwk.enc = arr[0]; pubJwk.sign = arr[1]; webauthnCred = arr[2]; webauthnRequired = (arr[3]===true); var hasVault=!!arr[4]; setLockState(); updateWebAuthnState(); showStatus('#keysStatus','Nyckelstatus:
-- Vault: '+(hasVault?'finns ✔️':'saknas')+'
-- Publika nycklar: '+((pubJwk.enc&&pubJwk.sign)?'finns ✔️':'saknas')); wire();
-    });
-  }
-
+  // Init
+  function init(){ ensureEnv(); Promise.all([ dbGet('pub.enc.jwk'), dbGet('pub.sign.jwk'), dbGet('webauthn.cred'), dbGet('webauthn.required'), dbGet('vault') ]).then(function(arr){ pubJwk.enc = arr[0]; pubJwk.sign = arr[1]; webauthnCred = arr[2]; webauthnRequired = (arr[3]===true); var hasVault=!!arr[4]; setLockState(); updateWebAuthnState(); status('#keysStatus','Nyckelstatus:
+- Vault: '+(hasVault?'finns':'saknas')+'
+- Publika nycklar: '+((pubJwk.enc&&pubJwk.sign)?'finns':'saknas')); wire(); }); }
   if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', init); } else { init(); }
 })();
 </script>
