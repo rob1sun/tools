@@ -91,6 +91,13 @@
   </div>
 
 <script>
+window.addEventListener('error', (e) => {
+  try {
+    const el = document.getElementById('status');
+    if (el) { el.className = 'status err'; el.classList.remove('hidden'); el.textContent = 'Scriptfel: ' + (e.message || e.error || 'okänt'); }
+  } catch {}
+});
+
 (() => {
   const $ = sel => document.querySelector(sel);
   const byId = id => document.getElementById(id);
@@ -103,26 +110,13 @@
   const diag = byId('diag');
   const diagpre = byId('diagpre');
 
-  let pickedFile = null;
+  // Säker init: om något saknas, visa fel men fortsätt inte
+  if (!drop || !fileInput || !goBtn || !statusEl || !resultsEl) {
+    try { const el = document.getElementById('status'); if (el){ el.className='status err'; el.classList.remove('hidden'); el.textContent='Initieringsfel: kunde inte hitta nödvändiga DOM-element.'; } } catch {}
+    return;
+  }
 
-  const setStatus = (msg, type = '') => {
-    statusEl.textContent = '';
-    statusEl.className = 'status';
-    if (!msg) { statusEl.classList.add('hidden'); return; }
-    statusEl.classList.remove('hidden');
-    statusEl.textContent = msg;
-    if (type === 'ok') statusEl.classList.add('ok');
-    if (type === 'err') statusEl.classList.add('err');
-  };
-
-  const humanSize = n => {
-    if (n < 1024) return n + ' B';
-    if (n < 1024*1024) return (n/1024).toFixed(1) + ' kB';
-    if (n < 1024*1024*1024) return (n/1024/1024).toFixed(1) + ' MB';
-    return (n/1024/1024/1024).toFixed(1) + ' GB';
-  };
-
-  // DnD/select
+  // Aktivera DnD och filväljare
   const onFiles = (files) => {
     const f = files && files[0];
     if (!f) return;
@@ -131,10 +125,12 @@
     setStatus(`Vald fil: ${f.name} (${humanSize(f.size)})`);
     resultsEl.innerHTML = '';
   };
-  fileInput.addEventListener('change', e => onFiles(e.target.files));
-  ;['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('dragover'); }));
-  ;['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('dragover'); }));
-  drop.addEventListener('drop', e => onFiles(e.dataTransfer.files));
+
+  fileInput.addEventListener('change', e => { try { onFiles(e.target.files); } catch (err) { setStatus('Fel vid läsning: '+err, 'err'); } });
+
+  ;['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); drop.classList.add('dragover'); }));
+  ;['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); drop.classList.remove('dragover'); }));
+  drop.addEventListener('drop', e => { try { onFiles(e.dataTransfer.files); } catch (err) { setStatus('Fel vid drop: '+err, 'err'); } });
 
   // Helpers
   const readAsArrayBuffer = (file) => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsArrayBuffer(file); });
