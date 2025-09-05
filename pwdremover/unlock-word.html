@@ -183,18 +183,14 @@
   }
   function deriveFromH(h, blockId, hashName, outLen){
     var hashAlgo = normalizeHashName(hashName);
-    var out = new Uint8Array(outLen); var off=0; var ctr=0;
-    function step(){
-      if (off>=outLen) return out;
-      return digest(hashAlgo, concat(h, le32(blockId))).then(function(b0){
-        var take = Math.min(b0.length, outLen-off);
-        out.set(b0.subarray(0,take), off); off+=take;
-        if (off>=outLen) return out;
-        return digest(hashAlgo, concat(b0, le32(ctr++))).then(function(b1){
-          var take2 = Math.min(b1.length, outLen-off); out.set(b1.subarray(0,take2), off); off+=take2; return step();
-        });
-      });
-    }
+    // ECMA‑376 Agile: DerivedKey = Truncate( Hash( H || LE32(blockId) ), keyBytesLen )
+    return digest(hashAlgo, concat(h, le32(blockId))).then(function(b){
+      var out = new Uint8Array(outLen);
+      var take = Math.min(outLen, b.length);
+      out.set(b.subarray(0, take), 0);
+      return out;
+    });
+  }
     return step();
   }
 
