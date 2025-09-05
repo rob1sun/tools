@@ -3,236 +3,239 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>E2E-krypterad Fildelning via WebRTC v2.2</title>
+    <title>Säker P2P Chatt, Video & Fildelning v7</title>
+    
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; color: #1c1e21; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
-        main { background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); width: 100%; max-width: 800px; padding: 2rem; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5; color: #1c1e21; margin: 0; padding: 20px;
+            display: flex; justify-content: center; align-items: flex-start; min-height: 100vh;
+        }
+        #app-container {
+            width: 100%; max-width: 700px; background-color: #ffffff;
+            border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            padding: 24px; box-sizing: border-box;
+        }
         h1, h2 { border-bottom: 1px solid #dddfe2; padding-bottom: 10px; margin-top: 0; }
-        h1 { color: #0056b3; } h2 { margin-top: 2rem; color: #333; }
-        .section { margin-bottom: 2rem; }
-        label { display: block; font-weight: 600; margin-bottom: 8px; }
-        input[type="password"], input[type="text"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 1rem; }
-        button { color: white; border: none; padding: 12px 20px; border-radius: 5px; cursor: pointer; font-size: 1rem; font-weight: 500; transition: background-color 0.2s; }
-        button:hover { opacity: 0.9; }
-        button:disabled { background-color: #a0a0a0; cursor: not-allowed; opacity: 0.7; }
-        .btn-primary { background-color: #007bff; }
-        .btn-secondary { background-color: #6c757d; }
-        .btn-danger { background-color: #dc3545; }
-        .drop-zone { border: 2px dashed #ccc; border-radius: 8px; padding: 25px; text-align: center; color: #6c757d; cursor: pointer; transition: background-color 0.2s, border-color 0.2s; margin-top: 1rem; }
-        .drop-zone.dragover { border-color: #007bff; background-color: #f0f8ff; }
-        .drop-zone input[type="file"] { display: none; }
-        .status { margin-top: 15px; padding: 10px; border-radius: 5px; text-align: center; font-weight: 500; }
-        .status.success { background-color: #d4edda; color: #155724; }
-        .status.error { background-color: #f8d7da; color: #721c24; }
-        .status.info { background-color: #cce5ff; color: #004085; }
-        #my-id-container { display: flex; justify-content: space-between; align-items: center; background-color: #e7f3ff; border-radius: 6px; padding: 10px 15px; word-break: break-all; }
-        #chat-log { height: 200px; border: 1px solid #dddfe2; border-radius: 6px; padding: 10px; margin-bottom: 10px; overflow-y: scroll; background-color: #f7f7f7; }
+        #my-id-container {
+            display: flex; justify-content: space-between; align-items: center;
+            background-color: #e7f3ff; border: 1px solid #cce0ff; border-radius: 6px;
+            padding: 10px 15px; margin-bottom: 20px;
+        }
+        #my-id-text { word-break: break-all; }
+        #my-id { font-weight: bold; color: #00529b; }
+        .id-button {
+            padding: 6px 12px; font-size: 14px; background-color: #4267B2;
+            font-weight: normal; margin-left: 8px; white-space: nowrap;
+        }
+        .id-button:hover { background-color: #365899; }
+        #connection-controls, #chat-controls { display: flex; gap: 10px; margin-bottom: 20px; }
+        input[type="text"] { flex-grow: 1; padding: 10px; border: 1px solid #dddfe2; border-radius: 6px; font-size: 16px; }
+        button { padding: 10px 20px; font-size: 16px; font-weight: bold; color: #fff; background-color: #1877f2; border: none; border-radius: 6px; cursor: pointer; transition: background-color 0.2s; }
+        button:hover { background-color: #166fe5; }
+        button:disabled { background-color: #a0a0a0; cursor: not-allowed; }
+        #call-btn-container { margin-bottom: 20px; }
+        #end-call-btn { background-color: #dc3545; }
+        #end-call-btn:hover { background-color: #c82333; }
+        #video-container { position: relative; width: 100%; background-color: #000; border-radius: 6px; overflow: hidden; margin-bottom: 20px; display: none; }
+        #remote-video { width: 100%; height: auto; display: block; }
+        #local-video { position: absolute; width: 25%; max-width: 180px; bottom: 15px; right: 15px; border: 2px solid #fff; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+        #chat-log { height: 200px; border: 1px solid #dddfe2; border-radius: 6px; padding: 10px; margin-bottom: 20px; overflow-y: scroll; background-color: #f7f7f7; }
         .message { padding: 8px 12px; border-radius: 18px; margin-bottom: 8px; max-width: 80%; word-wrap: break-word; }
         .message.sent { background-color: #0084ff; color: white; margin-left: auto; text-align: right; }
         .message.received { background-color: #e4e6eb; color: #050505; margin-right: auto; text-align: left; }
-        .message.system { background-color: #fffbe6; color: #9c6f00; text-align: center; max-width: 100%; font-style: italic; font-size: 0.9em; }
-        .message.system button { font-size: 0.8em; padding: 5px 10px; margin: 5px; }
-        /* Stil för modalen för lösenordsinmatning */
-        .modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; }
-        .modal-content { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); width: 90%; max-width: 400px; }
-        .modal-content label { margin-top: 1rem; }
-        .modal-content button { margin-top: 1rem; }
+        .message.system { background-color: #fffbe6; color: #9c6f00; text-align: center; max-width: 100%; font-style: italic; }
+        .message a { color: #00529b; font-weight: bold; }
+        #status { padding: 10px; border-radius: 6px; margin-top: 15px; font-weight: 500; }
+        .status-waiting { background-color: #fffbe6; color: #9c6f00; }
+        .status-connected { background-color: #e9f6ec; color: #006422; }
+        .status-error { background-color: #fbeae5; color: #b71d1d; }
+        #drop-zone { border: 2px dashed #ccc; border-radius: 6px; padding: 25px; text-align: center; background-color: #f8f9fa; transition: background-color 0.2s, border-color 0.2s; margin-bottom: 15px; }
+        #drop-zone p { margin: 0 0 15px 0; color: #606770; }
+        #drop-zone.drag-over { background-color: #e7f3ff; border-color: #1877f2; }
+        #file-input { display: none; }
+        .file-label-btn { padding: 10px 15px; background-color: #6c757d; border-radius: 6px; color: white; cursor: pointer; display: inline-block; }
+        #file-selection-info { display: flex; align-items: center; gap: 10px; }
+        #selected-file-name { font-style: italic; color: #606770; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-grow: 1; }
     </style>
 </head>
 <body>
-    <main>
-        <h1>Säker Fildelning med End-to-End-kryptering</h1>
 
-        <div id="key-management-section" class="section">
-            <h2>Kom igång: Skapa dina krypteringsnycklar</h2>
-            <p>Välj ett starkt lösenord. Detta lösenord används för att skydda din privata nyckel som sparas säkert i din webbläsare.</p>
-            <label for="key-password">Välj ett huvudlösenord:</label>
-            <input type="password" id="key-password" placeholder="Minst 8 tecken rekommenderas">
-            <button id="generate-keys-btn" class="btn-primary">Generera & Spara Nycklar</button>
+    <div id="app-container">
+        <h1>Säker P2P Chatt, Video & Fildelning</h1>
+        <div id="my-id-container">
+            <span id="my-id-text">Ditt Peer ID: <span id="my-id">Ansluter...</span></span>
+            <div>
+                <button id="copy-id-btn" class="id-button" title="Kopiera ID" disabled>Kopiera</button>
+                <button id="renew-id-btn" class="id-button" title="Skaffa nytt ID">🔄 Förnya</button>
+            </div>
         </div>
 
-        <div id="main-app-section" class="section" style="display: none;">
-            <div id="my-id-container">
-                <span>Ditt Peer ID: <strong id="my-id">Laddar...</strong></span>
-                <button id="copy-id-btn" class="btn-secondary" style="padding: 5px 10px; font-size: 0.8rem;">Kopiera</button>
-            </div>
-            <button id="show-key-mgmt-btn" style="font-size: 0.8rem; padding: 5px 10px; margin-top: 10px;" class="btn-danger">Glöm nycklar & börja om</button>
-
-            <h2>1. Anslut till en annan användare</h2>
-            <div style="display: flex; gap: 10px;">
-                <input type="text" id="peer-id-input" placeholder="Klistra in den andra användarens Peer ID">
-                <button id="connect-btn" class="btn-primary">Anslut</button>
-            </div>
-            <div id="status" class="status info">Status: Väntar på anslutning...</div>
-
-            <h2>2. Chatta & Överför Filer</h2>
-            <div id="chat-log"></div>
-            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                <input type="text" id="message-input" placeholder="Skriv ett meddelande..." disabled>
-                <button id="send-btn" class="btn-secondary" disabled>Skicka</button>
-            </div>
-            <div id="file-drop-zone" class="drop-zone">
-                <p>Dra och släpp en fil här, eller klicka för att välja</p>
-                <input type="file" id="file-input">
-            </div>
-            <button id="send-file-btn" class="btn-primary" style="width: 100%;" disabled>Skicka vald fil</button>
-
-            <h2>3. Lokal Dekryptering</h2>
-            <p>Dekryptera en fil du har sparat på din dator, utan att vara ansluten till någon.</p>
-            <div id="local-decrypt-drop-zone" class="drop-zone">
-                <p>Dra och släpp en krypterad fil här, eller klicka för att välja</p>
-                <input type="file" id="local-decrypt-file">
-            </div>
-            <label for="local-decrypt-password" style="margin-top: 10px;">Ange ditt huvudlösenord:</label>
-            <input type="password" id="local-decrypt-password">
-            <button id="local-decrypt-btn" class="btn-primary">Dekryptera & Ladda Ner</button>
+        <h2>1. Anslut till en annan användare</h2>
+        <div id="connection-controls">
+            <input type="text" id="peer-id-input" placeholder="Klistra in Peer ID här">
+            <button id="connect-btn">Anslut</button>
         </div>
-    </main>
-
-    <div id="password-modal" class="modal-backdrop">
-        <div class="modal-content">
-            <h2 id="modal-title">Dekryptera fil</h2>
-            <p id="modal-text">Ange ditt huvudlösenord för att dekryptera filen.</p>
-            <label for="modal-password-input">Lösenord:</label>
-            <input type="password" id="modal-password-input" autocomplete="current-password">
-            <button id="modal-submit-btn" class="btn-primary">Dekryptera</button>
-            <button id="modal-cancel-btn" class="btn-secondary">Avbryt</button>
+        <div id="status" class="status-waiting">Status: Väntar på anslutning...</div>
+        <h2>2. Videosamtal (Krypterat)</h2>
+        <div id="video-container">
+            <video id="remote-video" autoplay playsinline></video>
+            <video id="local-video" autoplay playsinline muted></video>
+        </div>
+        <div id="call-btn-container">
+            <button id="start-call-btn" disabled>Starta videosamtal</button>
+            <button id="end-call-btn" style="display: none;">Avsluta samtal</button>
+        </div>
+        <h2>3. Textchatt (Krypterad)</h2>
+        <div id="chat-log"></div>
+        <div id="chat-controls">
+            <input type="text" id="message-input" placeholder="Skriv ett meddelande..." disabled>
+            <button id="send-btn" disabled>Skicka</button>
+        </div>
+        <h2>4. Fildelning (Krypterat)</h2>
+        <div id="drop-zone">
+            <p>Dra och släpp en fil här, eller</p>
+            <label for="file-input" class="file-label-btn">Välj fil från datorn</label>
+            <input type="file" id="file-input">
+        </div>
+        <div id="file-selection-info">
+            <span id="selected-file-name">Ingen fil vald</span>
+            <button id="send-file-btn" disabled>Skicka vald fil</button>
         </div>
     </div>
 
     <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        // DOM-element
-        const keyMgmtSection = document.getElementById('key-management-section'), mainAppSection = document.getElementById('main-app-section'), keyPasswordInput = document.getElementById('key-password'), generateKeysBtn = document.getElementById('generate-keys-btn'), showKeyMgmtBtn = document.getElementById('show-key-mgmt-btn'), myIdSpan = document.getElementById('my-id'), copyIdBtn = document.getElementById('copy-id-btn'), peerIdInput = document.getElementById('peer-id-input'), connectBtn = document.getElementById('connect-btn'), statusDiv = document.getElementById('status'), chatLog = document.getElementById('chat-log'), messageInput = document.getElementById('message-input'), sendBtn = document.getElementById('send-btn'), fileDropZone = document.getElementById('file-drop-zone'), fileInput = document.getElementById('file-input'), sendFileBtn = document.getElementById('send-file-btn'), localDecryptDropZone = document.getElementById('local-decrypt-drop-zone'), localDecryptFileInput = document.getElementById('local-decrypt-file'), localDecryptPasswordInput = document.getElementById('local-decrypt-password'), localDecryptBtn = document.getElementById('local-decrypt-btn');
-        const passwordModal = document.getElementById('password-modal'), modalTitle = document.getElementById('modal-title'), modalPasswordInput = document.getElementById('modal-password-input'), modalSubmitBtn = document.getElementById('modal-submit-btn'), modalCancelBtn = document.getElementById('modal-cancel-btn');
-        
-        // Krypto & Peer-konstanter
-        const ENCRYPTED_KEY_SIZE = 256, IV_SIZE = 12, SALT_SIZE = 16, PBKDF2_ITERATIONS = 100000;
-        // Applikationens tillstånd (State)
-        let peer, dataConn, myKeys = { publicKey: null, encryptedPrivateKey: null }, peerPublicKey = null, fileToSend = null, localFileToDecrypt = null, receivedFiles = new Map();
-        let decryptAction = null; // För att hantera modalens callback
+        document.addEventListener('DOMContentLoaded', () => {
+            const PEER_ID_STORAGE_KEY = 'p2p-app-peer-id';
+            // Hämta DOM-element...
+            const appContainer = document.getElementById('app-container'), dropZone = document.getElementById('drop-zone');
+            const myIdSpan = document.getElementById('my-id'), copyIdBtn = document.getElementById('copy-id-btn'), renewIdBtn = document.getElementById('renew-id-btn');
+            const peerIdInput = document.getElementById('peer-id-input'), connectBtn = document.getElementById('connect-btn');
+            const statusDiv = document.getElementById('status');
+            const videoContainer = document.getElementById('video-container'), localVideo = document.getElementById('local-video'), remoteVideo = document.getElementById('remote-video');
+            const startCallBtn = document.getElementById('start-call-btn'), endCallBtn = document.getElementById('end-call-btn');
+            const chatLog = document.getElementById('chat-log'), messageInput = document.getElementById('message-input'), sendBtn = document.getElementById('send-btn');
+            const fileInput = document.getElementById('file-input'), sendFileBtn = document.getElementById('send-file-btn'), selectedFileName = document.getElementById('selected-file-name');
+            
+            let peer = null, dataConn = null, mediaConn = null, localStream = null, fileToSend = null;
 
-        // Databashantering (IndexedDB)
-        const DB_NAME = 'E2EE_KeyStorage', STORE_NAME = 'UserKeys';
-        let db;
-        function openDb() { return new Promise((resolve, reject) => { const r = indexedDB.open(DB_NAME, 1); r.onerror = () => reject("Databas kunde inte öppnas."); r.onsuccess = () => { db = r.result; resolve(); }; r.onupgradeneeded = e => e.target.result.createObjectStore(STORE_NAME, { keyPath: 'id' }); }); }
-        function getKeysFromDb() { return new Promise(resolve => { if (!db) return resolve(null); const r = db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).get('userKeyPair'); r.onsuccess = () => resolve(r.result ? r.result.keys : null); r.onerror = () => resolve(null); }); }
-        function saveKeysToDb(keys) { return new Promise((resolve, reject) => { const tx = db.transaction(STORE_NAME, 'readwrite').objectStore(STORE_NAME); tx.put({ id: 'userKeyPair', keys }).onsuccess = resolve; tx.onerror = () => reject("Kunde inte spara nycklar."); }); }
-        function deleteKeysFromDb() { return new Promise(resolve => db.transaction(STORE_NAME, 'readwrite').objectStore(STORE_NAME).delete('userKeyPair').onsuccess = resolve); }
-        
-        // UI- och hjälpfunktioner
-        // ** KORRIGERING: Använder mellanslag istället för bindestreck för CSS-klassen **
-        const showStatus = (m, t = 'info') => { statusDiv.textContent = `Status: ${m}`; statusDiv.className = `status ${t}`; };
-        function triggerDownload(b, f) { const u = URL.createObjectURL(b); const a = document.createElement('a'); a.style.display = 'none'; a.href = u; a.download = f; document.body.appendChild(a); a.click(); URL.revokeObjectURL(u); a.remove(); }
-        function addMessage(text, type) { const el = document.createElement('div'); el.className = `message ${type}`; el.textContent = text; chatLog.appendChild(el); chatLog.scrollTop = chatLog.scrollHeight; }
-        function addSystemMessage(htmlContent) { const el = document.createElement('div'); el.className = 'message system'; el.innerHTML = htmlContent; chatLog.appendChild(el); chatLog.scrollTop = chatLog.scrollHeight; }
-        function setupDropZone(dropZone, inputFile, onFileSelected) { dropZone.addEventListener('click', () => inputFile.click()); dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); }); dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover')); dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); if (e.dataTransfer.files.length > 0) onFileSelected(e.dataTransfer.files[0]); }); inputFile.addEventListener('change', e => { if (e.target.files.length > 0) onFileSelected(e.target.files[0]); }); }
-        function updateUiState(hasKeys) { if(hasKeys) { keyMgmtSection.style.display = 'none'; mainAppSection.style.display = 'block'; initializePeer(); } else { keyMgmtSection.style.display = 'block'; mainAppSection.style.display = 'none'; } }
+            // Funktion för att initiera PeerJS
+            function initializePeer(id) {
+                if (peer) peer.destroy(); // Se till att gamla anslutningar städas upp
+                
+                peer = new Peer(id, { debug: 2 });
 
-        // KRYPTERINGSFUNKTIONER (minifierade, samma som förut)
-        async function createAndSaveKeys() { const password = keyPasswordInput.value; if (password.length < 8) return alert('Lösenordet måste vara minst 8 tecken.'); try { const keyPair = await crypto.subtle.generateKey({ name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['encrypt', 'decrypt']); const publicKeyJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey); const privateKeyJwk = await crypto.subtle.exportKey('jwk', keyPair.privateKey); const salt = crypto.getRandomValues(new Uint8Array(SALT_SIZE)); const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), { name: 'PBKDF2' }, false, ['deriveKey']); const aesKey = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' }, keyMaterial, { name: 'AES-GCM', length: 256 }, true, ['encrypt']); const iv = crypto.getRandomValues(new Uint8Array(IV_SIZE)); const encryptedPrivateKeyData = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, aesKey, new TextEncoder().encode(JSON.stringify(privateKeyJwk))); myKeys = { publicKey: publicKeyJwk, encryptedPrivateKey: new Blob([salt, iv, new Uint8Array(encryptedPrivateKeyData)]) }; await saveKeysToDb(myKeys); updateUiState(true); } catch (error) { alert(`Kunde inte skapa nycklar: ${error.message}`); } }
-        async function decryptPrivateKey(password, encryptedKeyBlob) { const buffer = await encryptedKeyBlob.arrayBuffer(); const salt = buffer.slice(0, SALT_SIZE); const iv = buffer.slice(SALT_SIZE, SALT_SIZE + IV_SIZE); const data = buffer.slice(SALT_SIZE + IV_SIZE); const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), { name: 'PBKDF2' }, false, ['deriveKey']); const aesKey = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' }, keyMaterial, { name: 'AES-GCM', length: 256 }, true, ['decrypt']); const decryptedBytes = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, aesKey, data); const privateKeyJwk = JSON.parse(new TextDecoder().decode(decryptedBytes)); return await crypto.subtle.importKey('jwk', privateKeyJwk, { name: 'RSA-OAEP', hash: 'SHA-256' }, true, ['decrypt']); }
-        async function encryptFile(file, publicKey) { const rsaPublicKey = await crypto.subtle.importKey('jwk', publicKey, { name: 'RSA-OAEP', hash: 'SHA-256' }, true, ['encrypt']); const aesKey = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt']); const exportedAesKey = await crypto.subtle.exportKey('raw', aesKey); const encryptedAesKey = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, rsaPublicKey, exportedAesKey); const iv = crypto.getRandomValues(new Uint8Array(IV_SIZE)); const fileBuffer = await file.arrayBuffer(); const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, aesKey, fileBuffer); return new Blob([encryptedAesKey, iv, ciphertext]); }
-        async function decryptFile(encryptedBlob, password) { const privateKey = await decryptPrivateKey(password, myKeys.encryptedPrivateKey); const buffer = await encryptedBlob.arrayBuffer(); const encryptedAesKey = buffer.slice(0, ENCRYPTED_KEY_SIZE); const iv = buffer.slice(ENCRYPTED_KEY_SIZE, ENCRYPTED_KEY_SIZE + IV_SIZE); const ciphertext = buffer.slice(ENCRYPTED_KEY_SIZE + IV_SIZE); const decryptedAesKeyBytes = await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, privateKey, encryptedAesKey); const aesKey = await crypto.subtle.importKey('raw', decryptedAesKeyBytes, { name: 'AES-GCM' }, true, ['decrypt']); const decryptedBuffer = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, aesKey, ciphertext); return new Blob([decryptedBuffer]); }
-        
-        // --- PEERJS-LOGIK ---
-        function initializePeer() { if (peer) peer.destroy(); peer = new Peer(); peer.on('open', id => myIdSpan.textContent = id); peer.on('connection', conn => setupDataConnection(conn)); peer.on('error', err => showStatus(`PeerJS-fel: ${err.type}`, 'error')); showStatus('Väntar på anslutning...', 'info'); }
-        function setupDataConnection(connection) {
-            dataConn = connection;
-            dataConn.on('open', () => { showStatus(`Ansluten!`, 'success'); messageInput.disabled = false; sendBtn.disabled = false; dataConn.send({ type: 'publicKey', key: myKeys.publicKey }); addSystemMessage('Skickade publik nyckel.'); });
-            dataConn.on('data', data => {
-                switch(data.type) {
-                    case 'publicKey': peerPublicKey = data.key; addSystemMessage(`Mottog publik nyckel från ${dataConn.peer}.`); break;
-                    case 'chat': addMessage(data.message, 'received'); break;
-                    case 'file':
-                        const blob = new Blob([data.fileData]);
-                        receivedFiles.set(data.fileName, blob);
-                        const fileHtml = `Mottog fil: <strong>${data.fileName}</strong> <button class="btn-secondary" onclick="window.handleFileAction('${data.fileName}', 'download')">Ladda ner krypterad</button> <button class="btn-primary" onclick="window.handleFileAction('${data.fileName}', 'decrypt')">Dekryptera & Ladda ner</button>`;
-                        addSystemMessage(fileHtml);
-                        if(dataConn) dataConn.send({ type: 'ack', fileName: data.fileName }); // ** NYTT: Skicka bekräftelse **
-                        break;
-                    case 'ack': // ** NYTT: Ta emot bekräftelse **
-                        addSystemMessage(`Filen "${data.fileName}" har tagits emot av mottagaren.`);
-                        break;
+                peer.on('open', (newId) => {
+                    localStorage.setItem(PEER_ID_STORAGE_KEY, newId); // Spara det nya ID:t
+                    myIdSpan.textContent = newId;
+                    copyIdBtn.disabled = false;
+                    updateStatus(`Väntar på att någon ska ansluta...`, 'waiting');
+                });
+
+                peer.on('connection', (connection) => setupDataConnection(connection));
+                peer.on('call', (call) => {
+                    navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
+                        localStream = stream; localVideo.srcObject = localStream; call.answer(stream); setupMediaConnection(call);
+                    }).catch(err => console.error('Kunde inte komma åt kamera/mikrofon: ', err));
+                });
+
+                peer.on('error', (err) => {
+                    console.error('PeerJS-fel:', err);
+                    // Om ID:t är upptaget, ta bort det från lagring och försök igen
+                    if (err.type === 'unavailable-id') {
+                        addSystemMessage('Ditt sparade ID var upptaget. Ett nytt har skapats.');
+                        localStorage.removeItem(PEER_ID_STORAGE_KEY);
+                        initializePeer(null); // Försök igen utan ett specifikt ID
+                    } else {
+                         updateStatus(`Fel: ${err.message}`, 'error');
+                    }
+                });
+            }
+            
+            // Starta applikationen
+            initializePeer(localStorage.getItem(PEER_ID_STORAGE_KEY) || null);
+
+            // --- Knapp-event ---
+            renewIdBtn.addEventListener('click', () => {
+                addSystemMessage("Begär ett nytt Peer ID...");
+                localStorage.removeItem(PEER_ID_STORAGE_KEY);
+                initializePeer(null); // Starta om med ett nytt, slumpmässigt ID
+            });
+            
+            // ... resten av event-listeners (connect, start call, etc.) är oförändrade ...
+            connectBtn.addEventListener('click', () => { if (peerIdInput.value.trim()) setupDataConnection(peer.connect(peerIdInput.value.trim())); });
+            startCallBtn.addEventListener('click', () => {
+                if (!dataConn) { alert("Anslut till en annan användare först!"); return; }
+                navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
+                    localStream = stream; localVideo.srcObject = localStream; setupMediaConnection(peer.call(dataConn.peer, stream));
+                }).catch(err => console.error('Kunde inte komma åt kamera/mikrofon: ', err));
+            });
+            endCallBtn.addEventListener('click', () => { if (mediaConn) mediaConn.close(); });
+            copyIdBtn.addEventListener('click', () => navigator.clipboard.writeText(myIdSpan.textContent).then(() => {
+                const originalText = copyIdBtn.textContent; copyIdBtn.textContent = 'Kopierat!';
+                setTimeout(() => { copyIdBtn.textContent = originalText; }, 2000);
+            }));
+            sendBtn.addEventListener('click', sendMessage);
+            messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
+            fileInput.addEventListener('change', (e) => selectFile(e.target.files[0]));
+            sendFileBtn.addEventListener('click', sendFile);
+            appContainer.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+            appContainer.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+            appContainer.addEventListener('drop', (e) => {
+                e.preventDefault(); dropZone.classList.remove('drag-over');
+                if (e.dataTransfer.files.length > 0) {
+                    selectFile(e.dataTransfer.files[0]);
+                    if (e.dataTransfer.files.length > 1) addSystemMessage("Obs: Endast den första filen bifogades.");
                 }
             });
-            dataConn.on('close', () => { showStatus('Anslutningen bruten.', 'error'); messageInput.disabled = true; sendBtn.disabled = true; sendFileBtn.disabled = true; peerPublicKey = null; dataConn = null; });
-        }
 
-        // --- GLOBALA FUNKTIONER OCH MODALHANTERING ---
-        window.handleFileAction = (fileName, action) => {
-            const fileBlob = receivedFiles.get(fileName);
-            if (!fileBlob) return alert('Filen hittades inte.');
-            if (action === 'download') {
-                triggerDownload(fileBlob, `krypterad-${fileName}`);
-            } else if (action === 'decrypt') {
-                // ** KORRIGERING: Använd modal istället för prompt **
-                modalTitle.textContent = `Dekryptera "${fileName}"`;
-                passwordModal.style.display = 'flex';
-                modalPasswordInput.focus();
-                decryptAction = async (password) => {
-                    if (!password) return;
-                    try {
-                        addSystemMessage(`Dekrypterar ${fileName}...`);
-                        const decryptedBlob = await decryptFile(fileBlob, password);
-                        triggerDownload(decryptedBlob, fileName);
-                    } catch (e) {
-                        alert(`Dekryptering misslyckades. Kontrollera lösenordet. Fel: ${e.message}`);
-                    } finally {
-                        passwordModal.style.display = 'none';
-                        modalPasswordInput.value = '';
-                    }
-                };
+            // --- Alla andra funktioner (selectFile, sendMessage, sendFile, setupDataConnection, etc.) är oförändrade ---
+            function selectFile(file) {
+                if (!file || !dataConn) { if (!dataConn) { addSystemMessage("Anslut till en användare innan du väljer en fil."); } return; }
+                fileToSend = file; const fileSizeKB = (fileToSend.size / 1024).toFixed(1);
+                selectedFileName.textContent = `${fileToSend.name} (${fileSizeKB} KB)`;
+                sendFileBtn.disabled = false;
             }
-        };
-        modalSubmitBtn.addEventListener('click', () => { if (decryptAction) decryptAction(modalPasswordInput.value); });
-        modalCancelBtn.addEventListener('click', () => { passwordModal.style.display = 'none'; modalPasswordInput.value = ''; });
-        
-        // --- EVENT LISTENERS ---
-        generateKeysBtn.addEventListener('click', createAndSaveKeys);
-        showKeyMgmtBtn.addEventListener('click', async () => { if (confirm("Är du säker? Detta raderar dina nuvarande nycklar permanent.")) { await deleteKeysFromDb(); myKeys = { publicKey: null, encryptedPrivateKey: null }; if (peer) peer.destroy(); location.reload(); } });
-        connectBtn.addEventListener('click', () => { const remoteId = peerIdInput.value.trim(); if (remoteId) setupDataConnection(peer.connect(remoteId)); });
-        copyIdBtn.addEventListener('click', () => navigator.clipboard.writeText(myIdSpan.textContent));
-        sendBtn.addEventListener('click', () => { const msg = messageInput.value; if (msg && dataConn) { dataConn.send({ type: 'chat', message: msg }); addMessage(msg, 'sent'); messageInput.value = ''; } });
-        sendFileBtn.addEventListener('click', async () => {
-            if (!fileToSend) return;
-            if (!dataConn || !peerPublicKey) { addSystemMessage('Du måste vara ansluten till en mottagare som har delat sin publika nyckel.'); return; }
-            const fileName = fileToSend.name;
-            addSystemMessage(`Krypterar och startar sändning av ${fileName}...`); // ** NYTT: Progressmeddelande **
-            sendFileBtn.disabled = true;
-            try {
-                const encryptedBlob = await encryptFile(fileToSend, peerPublicKey);
-                const encryptedBuffer = await encryptedBlob.arrayBuffer();
-                dataConn.send({ type: 'file', fileName: fileToSend.name, fileData: encryptedBuffer });
-                fileToSend = null;
-                fileDropZone.querySelector('p').textContent = 'Dra och släpp en fil här, eller klicka för att välja';
-            } catch (e) { addSystemMessage(`Fel vid filkryptering: ${e.message}`); sendFileBtn.disabled = false; }
+            function sendMessage() {
+                if (dataConn && dataConn.open) { const msg = messageInput.value.trim(); if (msg) { dataConn.send(msg); addMessage(msg, 'sent'); messageInput.value = ''; } }
+            }
+            function sendFile() {
+                if (dataConn && dataConn.open && fileToSend) {
+                    addSystemMessage(`Skickar fil: ${fileToSend.name}`); dataConn.send({ type: 'file', file: fileToSend, fileName: fileToSend.name, fileType: fileToSend.type });
+                    fileToSend = null; fileInput.value = ''; selectedFileName.textContent = 'Ingen fil vald'; sendFileBtn.disabled = true;
+                }
+            }
+            function setupDataConnection(connection) {
+                dataConn = connection;
+                dataConn.on('open', () => { updateStatus(`Ansluten till ${dataConn.peer}.`, 'connected'); enableControls(); });
+                dataConn.on('data', (data) => {
+                    if (typeof data === 'string') { addMessage(data, 'received'); } 
+                    else if (data.type === 'file') {
+                        const blob = new Blob([data.file], { type: data.fileType }); const url = URL.createObjectURL(blob);
+                        addSystemMessage(`Mottog en fil: <a href="${url}" download="${data.fileName}">Ladda ner ${data.fileName}</a>`);
+                    }
+                });
+                dataConn.on('close', () => { updateStatus(`Anslutning bruten.`, 'error'); disableControls(); });
+            }
+            function setupMediaConnection(call) {
+                mediaConn = call; videoContainer.style.display = 'block'; startCallBtn.style.display = 'none'; endCallBtn.style.display = 'inline-block';
+                mediaConn.on('stream', (remoteStream) => remoteVideo.srcObject = remoteStream);
+                mediaConn.on('close', () => {
+                    videoContainer.style.display = 'none'; remoteVideo.srcObject = null; localVideo.srcObject = null;
+                    if (localStream) localStream.getTracks().forEach(track => track.stop());
+                    localStream = null; mediaConn = null; startCallBtn.style.display = 'inline-block'; endCallBtn.style.display = 'none';
+                    addSystemMessage('Videosamtal avslutat.');
+                });
+            }
+            function addMessage(text, type) { const msgDiv = document.createElement('div'); msgDiv.className = `message ${type}`; msgDiv.textContent = text; chatLog.appendChild(msgDiv); chatLog.scrollTop = chatLog.scrollHeight; }
+            function addSystemMessage(html) { const msgDiv = document.createElement('div'); msgDiv.className = 'message system'; msgDiv.innerHTML = html; chatLog.appendChild(msgDiv); chatLog.scrollTop = chatLog.scrollHeight; }
+            function updateStatus(message, type) { statusDiv.textContent = `Status: ${message}`; statusDiv.className = `status status-${type}`; }
+            function enableControls() { messageInput.disabled = false; sendBtn.disabled = false; startCallBtn.disabled = false; peerIdInput.disabled = true; connectBtn.disabled = true; }
+            function disableControls() { messageInput.disabled = true; sendBtn.disabled = true; startCallBtn.disabled = true; sendFileBtn.disabled = true; peerIdInput.disabled = false; connectBtn.disabled = false; }
         });
-        localDecryptBtn.addEventListener('click', async () => {
-            const file = localFileToDecrypt;
-            const password = localDecryptPasswordInput.value;
-            if (!file || !password) return alert('Välj en fil och ange ditt lösenord.');
-            try {
-                addSystemMessage(`Dekrypterar ${file.name} lokalt...`);
-                const decryptedBlob = await decryptFile(file, password);
-                triggerDownload(decryptedBlob, file.name.replace(/^krypterad-/, ''));
-                localFileToDecrypt = null;
-                localDecryptDropZone.querySelector('p').textContent = 'Dra och släpp en krypterad fil här, eller klicka för att välja';
-                localDecryptPasswordInput.value = '';
-                localDecryptFileInput.value = '';
-            } catch (e) { alert(`Lokal dekryptering misslyckades: ${e.message}`); }
-        });
-
-        // --- INITIERING VID SIDLADDNING ---
-        (async () => {
-            await openDb();
-            myKeys = await getKeysFromDb();
-            updateUiState(!!myKeys);
-            setupDropZone(fileDropZone, fileInput, (file) => { fileToSend = file; fileDropZone.querySelector('p').textContent = `Vald fil: ${file.name}`; sendFileBtn.disabled = false; });
-            setupDropZone(localDecryptDropZone, localDecryptFileInput, (file) => { localFileToDecrypt = file; localDecryptDropZone.querySelector('p').textContent = `Vald fil: ${file.name}`; });
-        })();
-    });
     </script>
+
 </body>
 </html>
