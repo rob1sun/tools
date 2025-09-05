@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Extrahera inbäddade PDF:er från Word (.docx) – ren klient‑side (Agile/2010+)</title>
+  <style>
+    :root { --bg:#0f172a; --panel:#111827ee; --accent:#22d3ee; --muted:#94a3b8; --text:#e5e7eb; --error:#f87171; --ok:#86efac; }
+    html,body{height:100%}
+    body{margin:0;background:radial-gradient(1200px 800px at 20% 10%,#1f2937 0,#0b1220 45%,#0a0f1c 100%);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,Noto Sans;display:grid;place-items:start center;padding:40px 16px}
+    .app{width:min(980px,100%);background:var(--panel);border:1px solid #1f2937;border-radius:24px;box-shadow:0 10px 40px rgba(0,0,0,.35);overflow:hidden}
+    header{padding:28px 32px 16px;border-bottom:1px solid #1f2937}
+    header h1{margin:0 0 8px;font-size:20px;letter-spacing:.3px}
+    header p{margin:0;color:var(--muted);font-size:14px}
+    .content{padding:24px 32px;display:grid;gap:18px}
+    .row{display:grid;gap:12px}
+    .grid{display:grid;gap:14px;grid-template-columns:1fr}
+    @media (min-width:900px){.grid{grid-template-columns:1fr 1fr}}
+    .drop{border:1px dashed #334155;border-radius:16px;padding:24px;text-align:center;background:#0b1220cc;transition:.2s border-color,.2s background}
+    .drop.dragover{border-color:var(--accent);background:#0b1220f0}
+    .drop input{display:none}
+    .drop label{display:inline-block;padding:10px 14px;border-radius:12px;background:#0b1220;border:1px solid #1f2937;cursor:pointer}
+    .controls{display:grid;gap:12px;grid-template-columns:1fr auto;align-items:end}
+    .controls input[type="password"]{background:#0b1220;border:1px solid #1f2937;color:var(--text);border-radius:12px;padding:12px 14px;width:100%}
+    .btn{background:linear-gradient(135deg,#06b6d4,#22d3ee);color:#002b36;font-weight:700;border:none;border-radius:12px;padding:12px 16px;cursor:pointer;box-shadow:0 4px 18px rgba(34,211,238,.25);transition:transform .06s ease-in-out,box-shadow .2s}
+    .btn:hover{transform:translateY(-1px);box-shadow:0 6px 22px rgba(34,211,238,.35)}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+    .hidden{display:none!important}
+    .note{font-size:13px;color:var(--muted)}
+    .status{padding:12px 14px;border-radius:12px;background:#0b1220;border:1px solid #1f2937;font-size:14px}
+    .status.ok{border-color:#14532d;color:var(--ok)}
+    .status.err{border-color:#7f1d1d;color:var(--error)}
+    .results{display:grid;gap:10px}
+    .card{display:grid;gap:8px;grid-template-columns:1fr auto;align-items:center;background:#0b1220;border:1px solid #1f2937;border-radius:12px;padding:12px 14px}
+    .chip{font-size:12px;color:#a1a1aa;border:1px solid #27272a;padding:4px 8px;border-radius:999px}
+    .download{text-decoration:none;padding:8px 12px;border-radius:10px;background:#1f2937;color:var(--text);border:1px solid #334155}
+    footer{padding:6px 32px 24px;color:var(--muted);font-size:12px}
+    code{background:#0b1220;border:1px solid #1f2937;padding:2px 6px;border-radius:8px}
+    details{background:#0b1220;border:1px solid #1f2937;border-radius:12px;padding:12px 14px}
+    summary{cursor:pointer;color:var(--accent)}
+  </style>
+  <!-- JSZip för .docx (ZIP), CFB för OLE-containrar (EncryptedPackage) -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/cfb@1.2.2/cfb.min.js"></script>
+</head>
+<body>
+  <div class="app" id="app">
+    <header>
+      <h1>Extrahera inbäddade PDF:er från ett Word‑dokument</h1>
+      <p>Ren <strong>klient‑side</strong>: hanterar <strong>moderna, lösenordskrypterade .docx (Agile/2010+)</strong> med WebCrypto. Äldre profiler stöds inte.</p>
+    </header>
+
+    <div class="content">
+      <div class="row grid">
+        <div class="drop" id="drop">
+          <input type="file" id="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/octet-stream" />
+          <p>Släpp din <strong>.docx</strong> här eller</p>
+          <label for="file">välj fil…</label>
+          <p class="note">Stöd: okrypterade .docx <em>och</em> helt krypterade .docx (Agile/2010+). IRM/RMS och äldre CryptoAPI/RC4 stöds inte.</p>
+        </div>
+        <div class="controls">
+          <div>
+            <label for="password" class="note">Lösenord</label>
+            <input type="password" id="password" placeholder="Ange lösenord om filen är krypterad" autocomplete="off" />
+          </div>
+          <button class="btn" id="go" disabled>Analysera & extrahera</button>
+        </div>
+      </div>
+
+      <div id="status" class="status hidden"></div>
+      <div class="results" id="results"></div>
+
+      <details>
+        <summary>Begränsningar och tips</summary>
+        <ul class="note">
+          <li>Endast <strong>Agile‑kryptering (Office 2010+)</strong>. Om dokumentet använder <em>CryptoAPI (RC4)</em> eller IRM/RMS kan det inte dekrypteras här.</li>
+          <li>Kräver <strong>https</strong> eller <strong>localhost</strong> för WebCrypto.</li>
+          <li>Mycket stora filer kan ge högt minne i mobilen. Spara gärna om dokumentet i senaste Office innan du testar.</li>
+        </ul>
+      </details>
+    </div>
+
+    <footer>
+      <p><strong>Integritet:</strong> Allt sker lokalt i din webbläsare. Inga filer laddas upp.</p>
+    </footer>
+  </div>
+
+<script>
+(() => {
+  const $ = sel => document.querySelector(sel);
+  const byId = id => document.getElementById(id);
+  const drop = byId('drop');
+  const fileInput = byId('file');
+  const goBtn = byId('go');
+  const statusEl = byId('status');
+  const resultsEl = byId('results');
+  const passEl = byId('password');
+
+  let pickedFile = null;
+
+  const setStatus = (msg, type = '') => {
+    statusEl.textContent = '';
+    statusEl.className = 'status';
+    if (!msg) { statusEl.classList.add('hidden'); return; }
+    statusEl.classList.remove('hidden');
+    statusEl.textContent = msg;
+    if (type === 'ok') statusEl.classList.add('ok');
+    if (type === 'err') statusEl.classList.add('err');
+  };
+
+  const humanSize = n => {
+    if (n < 1024) return n + ' B';
+    if (n < 1024*1024) return (n/1024).toFixed(1) + ' kB';
+    if (n < 1024*1024*1024) return (n/1024/1024).toFixed(1) + ' MB';
+    return (n/1024/1024/1024).toFixed(1) + ' GB';
+  };
+
+  // DnD/select
+  const onFiles = (files) => {
+    const f = files && files[0];
+    if (!f) return;
+    pickedFile = f;
+    goBtn.disabled = false;
+    setStatus(`Vald fil: ${f.name} (${humanSize(f.size)})`);
+    resultsEl.innerHTML = '';
+  };
+  fileInput.addEventListener('change', e => onFiles(e.target.files));
+  ;['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('dragover'); }));
+  ;['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('dragover'); }));
+  drop.addEventListener('drop', e => onFiles(e.dataTransfer.files));
+
+  // Helpers
+  const readAsArrayBuffer = (file) => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsArrayBuffer(file); });
+  const u8equals = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+  const isZip = (u8) => { const sigs = [[0x50,0x4B,0x03,0x04],[0x50,0x4B,0x05,0x06],[0x50,0x4B,0x07,0x08]]; return sigs.some(sig => u8equals(u8.slice(0,4), sig)); };
+  const isCFB = (u8) => { const sig = new Uint8Array([0xD0,0xCF,0x11,0xE0,0xA1,0xB1,0x1A,0xE1]); return u8.length>=8 && u8equals(u8.slice(0,8), sig); };
+  const toHex = (u8) => Array.from(u8).map(b=>b.toString(16).padStart(2,'0')).join('');
+
+  // --- WebCrypto utils ---
+  const subtle = crypto.subtle;
+  const encUTF8 = new TextEncoder();
+  const decUTF8 = new TextDecoder('utf-8');
+  const encU16 = (str) => { // UTF-16LE
+    const buf = new Uint8Array(str.length * 2);
+    for (let i=0;i<str.length;i++){ const code = str.charCodeAt(i); buf[i*2] = code & 0xFF; buf[i*2+1] = code >>> 8; }
+    return buf;
+  };
+  const b64ToU8 = (b64) => Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  const le32 = (i) => new Uint8Array([i & 0xFF, (i>>>8)&0xFF, (i>>>16)&0xFF, (i>>>24)&0xFF]);
+  const concat = (...arrs) => { const len = arrs.reduce((a,b)=>a+b.length,0); const out = new Uint8Array(len); let o=0; for (const a of arrs){ out.set(a,o); o+=a.length; } return out; };
+  async function digest(name, dataU8){ const buf = await subtle.digest(name, dataU8); return new Uint8Array(buf); }
+  async function aesCbcDecryptRaw(keyBytes, iv, data){
+    const key = await subtle.importKey('raw', keyBytes, {name:'AES-CBC'}, false, ['decrypt']);
+    const res = await subtle.decrypt({name:'AES-CBC', iv}, key, data);
+    return new Uint8Array(res);
+  }
+
+  // --- OOXML Agile (Office 2010+) parsing & KDF ---
+  function parseAgileXMLFromEncryptionInfo(u8){
+    // Hitta XML: leta efter '<encryption' i bytestreamen (hoppa ev. över binärt header)
+    const ascii = new TextDecoder('ascii');
+    const s = ascii.decode(u8);
+    const ix = s.indexOf('<encryption');
+    if (ix === -1) return null;
+    const xml = s.slice(ix);
+    const doc = new DOMParser().parseFromString(xml, 'application/xml');
+    const get = (el, attr) => el ? el.getAttribute(attr) : null;
+    const enc = doc.querySelector('encryption');
+    const keyData = doc.querySelector('keyData');
+    const ke = doc.querySelector('keyEncryptors > keyEncryptor[uri][uri*="password"] > encryptedKey');
+    if (!enc || !keyData || !ke) return null;
+
+    const kd = {
+      cipherAlgorithm: get(keyData, 'cipherAlgorithm')||'AES',
+      cipherChaining: get(keyData, 'cipherChaining')||'ChainingModeCBC',
+      hashAlgorithm: get(keyData, 'hashAlgorithm')||'SHA1',
+      saltValue: get(keyData, 'saltValue')||'',
+      saltSize: +(get(keyData, 'saltSize')||'16'),
+      blockSize: +(get(keyData, 'blockSize')||'16'),
+      keyBits: +(get(keyData, 'keyBits')||'256')
+    };
+    const ek = {
+      spinCount: +(get(ke,'spinCount')||'100000'),
+      saltValue: get(ke,'saltValue')||'',
+      hashAlgorithm: get(ke,'hashAlgorithm')||'SHA1',
+      cipherAlgorithm: get(ke,'cipherAlgorithm')||'AES',
+      cipherChaining: get(ke,'cipherChaining')||'ChainingModeCBC',
+      keyBits: +(get(ke,'keyBits')||'256'),
+      encryptedKeyValue: (ke.textContent||'').trim()
+    };
+    return { keyData: kd, encKey: ek };
+  }
+
+  function normalizeHashName(n){
+    n = (n||'').toUpperCase();
+    if (n.includes('512')) return 'SHA-512';
+    if (n.includes('384')) return 'SHA-384';
+    if (n.includes('256')) return 'SHA-256';
+    return 'SHA-1';
+  }
+
+  async function deriveAgilePasswordKey(password, salt, spinCount, hashName, keyBytesLen){
+    // H0 = H(salt || UTF16LE(password))
+    const pwU16 = encU16(password);
+    const hashAlgo = normalizeHashName(hashName);
+    let h = await digest(hashAlgo, concat(salt, pwU16));
+    // For i in [0..spinCount-1]: h = H(h || LE32(i))
+    for (let i=0;i<spinCount;i++){
+      h = await digest(hashAlgo, concat(h, le32(i)));
+    }
+    // Key = H(h || LE32(block)) repeated until length >= keyLen
+    const out = new Uint8Array(keyBytesLen);
+    let off = 0, block = 0;
+    while (off < keyBytesLen){
+      const kb = await digest(hashAlgo, concat(h, le32(block++)));
+      const take = Math.min(kb.length, keyBytesLen - off);
+      out.set(kb.subarray(0, take), off);
+      off += take;
+    }
+    return out;
+  }
+
+  async function tryAgileDecrypt(cfb, password){
+    const encInfoEntry = cfb.FileIndex.find(e => e.name === 'EncryptionInfo');
+    const encPkgEntry  = cfb.FileIndex.find(e => e.name === 'EncryptedPackage');
+    if (!encInfoEntry || !encPkgEntry) throw new Error('Saknar EncryptionInfo/EncryptedPackage');
+
+    const infoU8 = new Uint8Array(encInfoEntry.content);
+    const agile = parseAgileXMLFromEncryptionInfo(infoU8);
+    if (!agile) throw new Error('Filen verkar inte använda Agile‑kryptering (eller XML kunde inte läsas).');
+
+    const { keyData, encKey } = agile;
+    const kdSalt = b64ToU8(keyData.saltValue);
+    const ekSalt = b64ToU8(encKey.saltValue);
+    const keyLen = (encKey.keyBits||256)/8;
+
+    // 1) Derive password key
+    const pwdKey = await deriveAgilePasswordKey(password, ekSalt, encKey.spinCount, encKey.hashAlgorithm, keyLen);
+
+    // 2) Try decrypting encryptedKeyValue to obtain package key (best effort)
+    //    Heuristic: use ekSalt as IV, AES-CBC
+    let packageKey = null;
+    try{
+      const encKeyBytes = b64ToU8(encKey.encryptedKeyValue);
+      const dec = await aesCbcDecryptRaw(pwdKey, ekSalt.subarray(0,16), encKeyBytes.buffer);
+      // Often the first keyLen bytes form the key. Take slice and hope it works.
+      packageKey = dec.subarray(0, keyLen);
+    }catch(e){ /* fall back later */ }
+
+    // 3) If we couldn't get a package key, try using pwdKey directly (some Standard profiles)
+    if (!packageKey) packageKey = pwdKey;
+
+    // 4) Decrypt EncryptedPackage with keyData.saltValue as IV
+    const pkgCipher = new Uint8Array(encPkgEntry.content);
+    const plain = await aesCbcDecryptRaw(packageKey, kdSalt.subarray(0,16), pkgCipher.buffer);
+
+    // 5) Find ZIP ("PK") inside plaintext. There is usually a length prefix: we just scan.
+    let start = -1;
+    for (let i=0;i+4<=plain.length;i++){
+      if (plain[i]===0x50 && plain[i+1]===0x4B && plain[i+2]===0x03 && plain[i+3]===0x04){ start = i; break; }
+    }
+    if (start === -1) throw new Error('Kunde inte hitta ZIP‑signatur efter dekryptering (fel lösenord/algoritm).');
+    return plain.subarray(start);
+  }
+
+  // --- Extraction from decrypted .docx ZIP ---
+  async function extractFromDocxZip(u8){
+    const zip = await JSZip.loadAsync(u8);
+    const embeddings = Object.values(zip.files).filter(f => f.name.startsWith('word/embeddings/') && !f.dir);
+
+    // Direkt PDF
+    const directPDFs = embeddings.filter(f => f.name.toLowerCase().endsWith('.pdf'));
+    for (const f of directPDFs) {
+      const ab = await f.async('arraybuffer');
+      const bytes = new Uint8Array(ab);
+      if (bytes[0]===0x25 && bytes[1]===0x50 && bytes[2]===0x44 && bytes[3]===0x46) addResult(f.name.split('/').pop(), bytes);
+    }
+
+    // OLE‑bin
+    const bins = embeddings.filter(f => f.name.toLowerCase().endsWith('.bin'));
+    for (const f of bins) {
+      const ab = await f.async('arraybuffer');
+      try{
+        const cfb = CFB.read(new Uint8Array(ab), { type:'array' });
+        const entry = cfb.FileIndex.find(en => en.name.endsWith('Ole10Native')) || cfb.FileIndex.find(en => en.name.endsWith('Package')) || cfb.FileIndex.find(en => en.name.endsWith('CONTENTS'));
+        if (!entry || !entry.content) continue;
+        const bytes = new Uint8Array(entry.content);
+        // Sök PDF‑signatur
+        let i=0; for (; i+4<=bytes.length; i++){ if (bytes[i]===0x25 && bytes[i+1]===0x50 && bytes[i+2]===0x44 && bytes[i+3]===0x46) break; }
+        const pdf = bytes.subarray(i);
+        if (pdf.length>=4 && pdf[0]===0x25 && pdf[1]===0x50 && pdf[2]===0x44 && pdf[3]===0x46){ addResult((f.name.split('/').pop()||'inbäddad')+'.pdf', pdf); }
+      }catch(e){ console.warn('OLE‑tolkning misslyckades', f.name, e); }
+    }
+
+    if (!resultsEl.children.length) setStatus('Hittade inga inbäddade PDF:er i dokumentet.', 'err');
+    else setStatus(`Klart! Hittade ${resultsEl.children.length} PDF‑fil(er).`, 'ok');
+  }
+
+  function addResult(name, bytes){
+    const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+    const card = document.createElement('div'); card.className = 'card';
+    const left = document.createElement('div'); const right = document.createElement('div');
+    const title = document.createElement('div'); title.innerHTML = `<strong>${name}</strong>`;
+    const meta = document.createElement('div'); meta.innerHTML = `<span class="chip">${humanSize(bytes.length)}</span>`;
+    left.appendChild(title); left.appendChild(meta);
+    const a = document.createElement('a'); a.href = url; a.download = name.endsWith('.pdf')?name:(name+'.pdf'); a.textContent = 'Ladda ner'; a.className = 'download';
+    right.appendChild(a); card.appendChild(left); card.appendChild(right); resultsEl.appendChild(card);
+  }
+
+  async function onGo(){
+    resultsEl.innerHTML = '';
+    setStatus('Läser fil …');
+    try{
+      const ab = await readAsArrayBuffer(pickedFile);
+      const u8 = new Uint8Array(ab);
+      const password = passEl.value || '';
+
+      if (isZip(u8)){
+        setStatus('Upptäckte okrypterad .docx (ZIP). Söker inbäddade objekt …');
+        await extractFromDocxZip(u8);
+        return;
+      }
+
+      if (!isCFB(u8)) throw new Error('Okänt filformat – förväntade .docx (ZIP) eller krypterad .docx (CFB).');
+      if (!password){ setStatus('Detta ser ut som en krypterad .docx. Ange lösenord.', 'err'); return; }
+
+      setStatus('Dekrypterar (Agile/2010+) …');
+      const cfb = CFB.read(u8, { type:'array' });
+      let decZip;
+      try{
+        decZip = await tryAgileDecrypt(cfb, password);
+      }catch(err){
+        console.error(err);
+        throw new Error('Kunde inte dekryptera med Agile‑profil. Dokumentet kan vara äldre (RC4) eller lösenordet fel.');
+      }
+
+      setStatus('Dekryptering klar. Extraherar PDF:er …');
+      await extractFromDocxZip(decZip);
+    }catch(err){
+      console.error(err);
+      setStatus('Fel: '+(err && err.message? err.message : String(err)), 'err');
+    }
+  }
+
+  goBtn.addEventListener('click', onGo);
+})();
+</script>
+</body>
+</html>
