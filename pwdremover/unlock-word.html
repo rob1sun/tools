@@ -175,31 +175,38 @@
     };
   }
   function normalizeHashName(n){ n = (n||'').toUpperCase(); if (n.indexOf('512')!==-1) return 'SHA-512'; if (n.indexOf('384')!==-1) return 'SHA-384'; if (n.indexOf('256')!==-1) return 'SHA-256'; return 'SHA-1'; }
-  function deriveAgilePasswordKey(password, salt, spinCount, hashName, keyBytesLen){
+    function deriveAgileBaseH(password, salt, spinCount, hashName){
     var hashAlgo = normalizeHashName(hashName);
     var pwU16 = encU16(password);
     return digest(hashAlgo, concat(salt, pwU16)).then(function(h){
       var i=0;
       function loop(){
-        if (i>=spinCount) return Promise.resolve(h);
+        if (i>=spinCount) return h;
         var next = concat(h, le32(i)); i++;
         return digest(hashAlgo, next).then(function(h2){ h = h2; return loop(); });
       }
       return loop();
-    }).then(function(h){
-      var out = new Uint8Array(keyBytesLen); var off=0, block=0;
-      function fill(){
-        if (off>=keyBytesLen) return out;
-        return digest(hashAlgo, concat(h, le32(block++))).then(function(kb){
-          var take = Math.min(kb.length, keyBytesLen - off);
-          out.set(kb.subarray(0,take), off); off += take; return fill();
-        });
-      }
-      return fill();
     });
   }
+  function deriveFromH(h, blockId, hashName, outLen){
+    var hashAlgo = normalizeHashName(hashName);
+    var out = new Uint8Array(outLen); var off=0; var ctr=0;
+    function step(){
+      if (off>=outLen) return out;
+      return digest(hashAlgo, concat(h, le32(blockId))).then(function(b0){
+        // Expand if needed by rehashing b0 with an increasing counter
+        var take = Math.min(b0.length, outLen-off);
+        out.set(b0.subarray(0,take), off); off+=take;
+        if (off>=outLen) return out;
+        return digest(hashAlgo, concat(b0, le32(ctr++))).then(function(b1){
+          var take2 = Math.min(b1.length, outLen-off); out.set(b1.subarray(0,take2), off); off+=take2; return step();
+        });
+      });
+    }
+    return step();
+  }
 
-  function tryAgileDecrypt(cfb, password){
+  function tryAgileDecrypt(cfb, password){(cfb, password){
     var encInfoEntry = null, encPkgEntry = null;
     for (var i=0;i<cfb.FileIndex.length;i++){
       var e = cfb.FileIndex[i];
@@ -218,13 +225,21 @@
     var ekSalt = b64ToU8(agile.encKey.saltValue);
     var keyLen = (agile.encKey.keyBits||256)/8;
 
-    return deriveAgilePasswordKey(password, ekSalt, agile.encKey.spinCount, agile.encKey.hashAlgorithm, keyLen).then(function(pwdKey){
-      function decryptKey(iv){
-        if (!agile.encKey.encryptedKeyValue) return Promise.resolve(null);
-        var encKeyBytes = b64ToU8(agile.encKey.encryptedKeyValue);
-        return aesCbcDecryptRaw(pwdKey, iv.subarray(0,16), encKeyBytes.buffer).then(function(dec){ return new Uint8Array(dec).subarray(0, keyLen); });
-      }
-      return decryptKey(ekSalt).catch(function(){ return decryptKey(kdSalt); }).then(function(packageKey){
+    return deriveAgileBaseH(password, ekSalt, agile.encKey.spinCount, agile.encKey.hashAlgorithm).then(function(baseH){
+      // Härled tre nycklar enligt Agile: block 0 (verifier), 1 (verifierHash), 2 (key/KEK)
+      return deriveFromH(baseH, 2, agile.encKey.hashAlgorithm, keyLen).then(function(kek){
+        // Om encryptedKeyValue finns, dekryptera paketnyckeln med KEK; annars använd KEK direkt
+        function getPackageKey(iv){
+          if (!agile.encKey.encryptedKeyValue) return Promise.resolve(kek);
+          var encKeyBytes = b64ToU8(agile.encKey.encryptedKeyValue);
+          return aesCbcDecryptRaw(kek, iv.subarray(0,16), encKeyBytes.buffer).then(function(dec){ return new Uint8Array(dec).subarray(0, keyLen); });
+        }
+        return getPackageKey(ekSalt).catch(function(){ return getPackageKey(kdSalt); }).then(function(packageKey){
+          var pkgCipher = new Uint8Array(encPkgEntry.content);
+          return aesCbcDecryptRaw(packageKey, kdSalt.subarray(0,16), pkgCipher.buffer);
+        });
+      });
+    }).then(function(packageKey){
         if (!packageKey) packageKey = pwdKey; // Standard‑profil
         var pkgCipher = new Uint8Array(encPkgEntry.content);
         return aesCbcDecryptRaw(packageKey, kdSalt.subarray(0,16), pkgCipher.buffer);
