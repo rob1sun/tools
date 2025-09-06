@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Extrahera PDF ur Word (.docx) – klient‑side (Agile/2010+) – v3</title>
+  <title>Extrahera PDF ur Word (.docx) – klient‑side (Agile/2010+) – v3.3r2</title>
   <style>
     :root { --bg:#0f172a; --panel:#111827ee; --accent:#22d3ee; --muted:#94a3b8; --text:#e5e7eb; --error:#f87171; --ok:#86efac; }
     html,body{height:100%}
@@ -43,7 +43,7 @@
   <div class="app">
     <header>
       <h1>Extrahera inbäddade PDF:er från Word</h1>
-      <p>Ren klient‑side. Stöd för <strong>Agile‑krypterade .docx (Office 2010+)</strong>. Äldre RC4/CryptoAPI och IRM stöds inte. <span id="versionHeader" style="opacity:.7">· Version v3.2</span></p>
+      <p>Ren klient‑side. Stöd för <strong>Agile‑krypterade .docx (Office 2010+)</strong>. Äldre RC4/CryptoAPI och IRM stöds inte. <span id="versionHeader" style="opacity:.7">· Version v3.3r2</span></p>
     </header>
 
     <div class="content">
@@ -73,7 +73,7 @@
     </div>
   </div>
   <footer style="padding:10px 24px 24px;color:#94a3b8;font-size:12px">
-    <span id="version">Version v3.2</span> · Allt sker lokalt i din webbläsare.
+    <span id="version">Version v3.3r2</span> · Allt sker lokalt i din webbläsare.
   </footer>
 
 <script>
@@ -126,8 +126,7 @@
 
   // --- Binary helpers ---
   function readAsArrayBuffer(file){ return new Promise(function(res,rej){ var fr=new FileReader(); fr.onload=function(){res(fr.result)}; fr.onerror=function(){rej(fr.error||'filfel')}; fr.readAsArrayBuffer(file); }); }
-  function isZip(u8){ var sigs=[[0x50,0x4B,0x03,0x04],[0x50,0x4B,0x05,0x06],[0x50,0x4B,0x07,0x08]]; for (var i=0;i<sigs.length;i++){ var s=sigs[i]; var ok=true; for (var j=0;j<4;j++){ if (u8[j]!==s[j]) {ok=false; break;} } if (ok) if (verEl) verEl.textContent = 'Verifiering: OK';
-                    return true; } return false; }
+  function isZip(u8){ var sigs=[[0x50,0x4B,0x03,0x04],[0x50,0x4B,0x05,0x06],[0x50,0x4B,0x07,0x08]]; for (var i=0;i<sigs.length;i++){ var s=sigs[i]; var ok=true; for (var j=0;j<4;j++){ if (u8[j]!==s[j]) {ok=false; break;} } if (ok){ return true; } } return false; }
   function isCFB(u8){ var sig=[0xD0,0xCF,0x11,0xE0,0xA1,0xB1,0x1A,0xE1]; for (var i=0;i<8;i++){ if (u8[i]!==sig[i]) return false; } return true; }
 
   // --- WebCrypto helpers ---
@@ -138,6 +137,7 @@
   function b64ToU8(b64){ var bin=atob(b64); var u8=new Uint8Array(bin.length); for (var i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i); return u8; }
   function le32(i){ return new Uint8Array([i & 0xFF,(i>>>8)&0xFF,(i>>>16)&0xFF,(i>>>24)&0xFF]); }
   function concat(){ var total=0; for (var i=0;i<arguments.length;i++) total+=arguments[i].length; var out=new Uint8Array(total), off=0; for (var j=0;j<arguments.length;j++){ out.set(arguments[j], off); off+=arguments[j].length; } return out; }
+  function hexSample(u8, limit){ limit = Math.min(limit||64, u8.length); var s=[]; for (var i=0;i<limit;i++){ var b=u8[i].toString(16).toUpperCase(); if (b.length<2) b='0'+b; s.push(b); } return s.join(' '); }
   function digest(name, dataU8){ return subtle.digest(name, dataU8).then(function(buf){ return new Uint8Array(buf); }); }
   function aesCbcDecryptRaw(keyBytes, iv, data){
     return subtle.importKey('raw', keyBytes, {name:'AES-CBC'}, false, ['decrypt']).then(function(key){
@@ -228,6 +228,38 @@
     var ekSalt = b64ToU8(agile.encKey.saltValue);
     var keyLen = (agile.encKey.keyBits||256)/8;
 
+    function tryDecryptWithIV(pkgKey, iv){
+      var pkgCipher = new Uint8Array(encPkgEntry.content);
+      return aesCbcDecryptRaw(pkgKey, iv.subarray(0,16), pkgCipher.buffer).then(function(plain){
+        // EncryptedPackage = [8 byte LE-längd] + ZIP
+        var start = 8; var size = 0; var lenInfo='';
+        try {
+          var dv = new DataView(plain.buffer, plain.byteOffset, plain.byteLength);
+          var lo = dv.getUint32(0, true)>>>0;
+          var hi = dv.getUint32(4, true)>>>0;
+          var max = plain.length - start;
+          var big = hi * 4294967296 + lo;
+          if (big > 0) size = big > max ? max : big;
+          lenInfo = 'lenLE='+big+' (clamped '+size+')';
+        } catch(e){ lenInfo = 'lenLE=??'; }
+        var cand = size>0 ? plain.subarray(start, start+size) : plain.subarray(start);
+        // Fallback: PK-signatur
+        if (!(cand && cand.length>4 && cand[0]===0x50 && cand[1]===0x4B)){
+          for (var i=0;i+4<=plain.length;i++){
+            if (plain[i]===0x50 && plain[i+1]===0x4B && plain[i+2]===0x03 && plain[i+3]===0x04){ cand = plain.subarray(i); break; }
+          }
+        }
+        try {
+          if (diag && diagpre){
+            var msg='IV='+Array.from(iv.subarray(0,4)).map(function(b){var h=b.toString(16).toUpperCase();return h.length<2?'0'+h:h;}).join('')+'… | '+lenInfo+' | head8='+hexSample(plain,8)+' | cand8='+hexSample(cand,8);
+            diagpre.textContent += (diagpre.textContent?'
+':'') + msg;
+          }
+        } catch(e){}
+        return cand;
+      });
+    }
+
     return deriveAgileBaseH(password, ekSalt, agile.encKey.spinCount, agile.encKey.hashAlgorithm).then(function(H){
       // 0: verifier, 1: verifierHash, 2: package key (KEK)
       return deriveBlockKey(H, 0, agile.encKey.hashAlgorithm, (agile.encKey.keyBits||256)/8).then(function(k_ver){
@@ -261,11 +293,17 @@
                 return aesCbcDecryptRaw(k_pkg, ekSalt.subarray(0,16), encKeyBytes.buffer).then(function(dec){ return new Uint8Array(dec).subarray(0, (agile.encKey.keyBits||256)/8); });
               }
               return getPackageKey().then(function(pkgKey){
-              // Prova IV = kdSalt (spec). Om ej ZIP, prova IV = ekSalt.
-              return tryDecryptWithIV(pkgKey, kdSalt).then(function(zipCand){
-                var looksZip = zipCand && zipCand.length>4 && zipCand[0]===0x50 && zipCand[1]===0x4B;
-                if (looksZip) return zipCand;
-                return tryDecryptWithIV(pkgKey, ekSalt);
+                // Försök IV = kdSalt (spec). Om ej ZIP, prova IV = ekSalt, sedan nollor.
+                return tryDecryptWithIV(pkgKey, kdSalt).then(function(zipCand){
+                  var looksZip = zipCand && zipCand.length>4 && zipCand[0]===0x50 && zipCand[1]===0x4B;
+                  if (looksZip) return zipCand;
+                  return tryDecryptWithIV(pkgKey, ekSalt);
+                }).then(function(zipCand2){
+                  var looksZip2 = zipCand2 && zipCand2.length>4 && zipCand2[0]===0x50 && zipCand2[1]===0x4B;
+                  if (looksZip2) return zipCand2;
+                  var zeros = new Uint8Array(16);
+                  return tryDecryptWithIV(pkgKey, zeros);
+                });
               });
             });
             });
@@ -292,7 +330,7 @@
     right.appendChild(a); card.appendChild(left); card.appendChild(right); if (resultsEl) resultsEl.appendChild(card);
   }
   function extractFromDocxZip(u8){
-    return JSZip.loadAsync(u8).then(function(zip){
+    return JSZip.loadAsync(u8).catch(function(err){ setStatus('JSZip-fel: '+(err && err.message? err.message: String(err)), 'err'); throw err; }).then(function(zip){
       var files = Object.values(zip.files);
       var embeddings = files.filter(function(f){ return f.name.indexOf('word/embeddings/')===0 && !f.dir; });
       var tasks = [];
@@ -321,6 +359,7 @@
   function onGo(){
     if (!pickedFile){ setStatus('Ingen fil vald.', 'err'); return; }
     resultsEl.innerHTML = '';
+    if (diag) diag.classList.remove('hidden');
     setStatus('Läser fil …');
     readAsArrayBuffer(pickedFile).then(function(ab){
       var u8 = new Uint8Array(ab);
