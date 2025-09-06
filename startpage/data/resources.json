@@ -1,21 +1,21 @@
 [
   {
-    "name": "DN",
-    "description": "Nyheter varje dag. Här kan vi se om det blir problem med lång beskrivande text eller om det ser ut att funka.",
-    "image": "images/dn.png",
-    "url": "https://dn.se"
+    "name": "DN – Dagens Nyheter",
+    "url": "https://dn.se",
+    "description": "Sveriges största morgontidning.",
+    "image": "images/dn.png"
   },
   {
     "name": "DNS Check",
+    "url": "https://dnscheck.iis.se",
     "description": "Analysera DNS-konfigurationer.",
-    "image": "images/dnscheck.png",
-    "url": "https://dnscheck.iis.se"
+    "image": "images/dnscheck.png"
   },
   {
     "name": "Webbriktlinjer",
-    "description": "Vägledning för tillgängliga webbplatser.",
-    "image": "images/webbriktlinjer.png",
     "url": "https://webbriktlinjer.se"
   }
 ]
+
+
 
