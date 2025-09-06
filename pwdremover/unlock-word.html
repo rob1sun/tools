@@ -53,6 +53,7 @@
           <p>Släpp din <strong>.docx</strong> här eller</p>
           <label for="file">välj fil…</label>
           <p class="note">Kräver https/localhost för WebCrypto.</p>
+          <p class="note">Reservuppladdning: <input type="file" id="fileAlt" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/octet-stream" style="display:inline-block" /></p>
         </div>
         <div class="controls">
           <div>
@@ -79,9 +80,12 @@
 <script>
 // v3 – stabil uppladdning + valbar Agile-dekryptering
 (function(){
+  // fånga globala fel så att uppladdningsfel syns
+  window.addEventListener('error', function(ev){ try{ setStatus('Fel (globalt): '+(ev && ev.message ? ev.message : 'okänt fel'), 'err'); }catch(e){} });
   // --- DOM ---
   var drop = document.getElementById('drop');
   var fileInput = document.getElementById('file');
+  var fileInputAlt = document.getElementById('fileAlt');
   var goBtn = document.getElementById('go');
   var statusEl = document.getElementById('status');
   var resultsEl = document.getElementById('results');
@@ -110,7 +114,7 @@
   }
   function onFiles(files){
     var f = files && files[0];
-    if (!f) return;
+    if (!f) { setStatus('Ingen fil vald.', 'err'); return; }
     pickedFile = f;
     if (goBtn) goBtn.disabled = false;
     setStatus('Vald fil: ' + f.name + ' (' + humanSize(f.size) + ')', 'ok');
@@ -118,6 +122,8 @@
   }
 
   if (fileInput){ fileInput.addEventListener('change', function(e){ onFiles(e.target.files); }); }
+  if (fileInputAlt){ fileInputAlt.addEventListener('change', function(e){ onFiles(e.target.files); }); }
+  if (drop){ drop.addEventListener('click', function(){ if (fileInput) fileInput.click(); }); }
   if (drop){
     ['dragenter','dragover'].forEach(function(ev){ drop.addEventListener(ev, function(e){ e.preventDefault(); e.stopPropagation(); drop.classList.add('dragover'); }); });
     ['dragleave','drop'].forEach(function(ev){ drop.addEventListener(ev, function(e){ e.preventDefault(); e.stopPropagation(); drop.classList.remove('dragover'); }); });
