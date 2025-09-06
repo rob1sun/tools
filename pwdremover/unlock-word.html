@@ -72,6 +72,9 @@
       <div class="results" id="results"></div>
     </div>
   </div>
+  <footer style="padding:10px 24px 24px;color:#94a3b8;font-size:12px">
+    <span id="version">Version v3.1</span> · Allt sker lokalt i din webbläsare.
+  </footer>
 
 <script>
 // v3 – stabil uppladdning + valbar Agile-dekryptering
@@ -169,7 +172,9 @@
         cipherAlgorithm: get(ke,'cipherAlgorithm')||'AES',
         cipherChaining: get(ke,'cipherChaining')||'ChainingModeCBC',
         keyBits: +(get(ke,'keyBits')||'256'),
-        encryptedKeyValue: (ke.textContent||'').trim()
+        encryptedKeyValue: (ke.textContent||'').trim(),
+        encryptedVerifierHashInput: get(ke,'encryptedVerifierHashInput'),
+        encryptedVerifierHashValue: get(ke,'encryptedVerifierHashValue')
       }
     };
   }
@@ -195,6 +200,11 @@
       return out;
     });
   }
+  function equalPrefix(a,b){
+    var n = Math.min(a.length, b.length);
+    for (var i=0;i<n;i++){ if (a[i]!==b[i]) return false; }
+    return true;
+  }
 
   function tryAgileDecrypt(cfb, password){
     var encInfoEntry = null, encPkgEntry = null;
@@ -210,23 +220,49 @@
     if (!agile) return Promise.reject(new Error('Inte Agile‑kryptering (eller XML kunde inte läsas).'));
 
     // Diagnostik
-    try { if (diag && diagpre){ diag.classList.remove('hidden'); var d = { keyData: agile.keyData, encKey: { spinCount: agile.encKey.spinCount, hashAlgorithm: agile.encKey.hashAlgorithm, keyBits: agile.encKey.keyBits, hasEncryptedKeyValue: !!agile.encKey.encryptedKeyValue } }; diagpre.textContent = JSON.stringify(d, null, 2); } } catch(e){}
+    try { if (diag && diagpre){ diag.classList.remove('hidden'); var d = { keyData: agile.keyData, encKey: { spinCount: agile.encKey.spinCount, hashAlgorithm: agile.encKey.hashAlgorithm, keyBits: agile.encKey.keyBits, hasEncryptedKeyValue: !!agile.encKey.encryptedKeyValue, hasVerifierFields: !!(agile.encKey.encryptedVerifierHashInput && agile.encKey.encryptedVerifierHashValue) } }; diagpre.textContent = JSON.stringify(d, null, 2); } } catch(e){}
 
     var kdSalt = b64ToU8(agile.keyData.saltValue);
     var ekSalt = b64ToU8(agile.encKey.saltValue);
     var keyLen = (agile.encKey.keyBits||256)/8;
 
     return deriveAgileBaseH(password, ekSalt, agile.encKey.spinCount, agile.encKey.hashAlgorithm).then(function(H){
-      return deriveBlockKey(H, 2, agile.encKey.hashAlgorithm, keyLen).then(function(packageKey){
-        // Om encryptedKeyValue finns, dekryptera den med packageKey som KEK (fallback)
-        function maybeUnwrap(iv){
-          if (!agile.encKey.encryptedKeyValue) return Promise.resolve(packageKey);
-          var encKeyBytes = b64ToU8(agile.encKey.encryptedKeyValue);
-          return aesCbcDecryptRaw(packageKey, iv.subarray(0,16), encKeyBytes.buffer).then(function(dec){ return new Uint8Array(dec).subarray(0, keyLen); });
-        }
-        return maybeUnwrap(ekSalt).catch(function(){ return maybeUnwrap(kdSalt); }).then(function(pkgKey){
-          var pkgCipher = new Uint8Array(encPkgEntry.content);
-          return aesCbcDecryptRaw(pkgKey, kdSalt.subarray(0,16), pkgCipher.buffer);
+      // 0: verifier, 1: verifierHash, 2: package key (KEK)
+      return deriveBlockKey(H, 0, agile.encKey.hashAlgorithm, (agile.encKey.keyBits||256)/8).then(function(k_ver){
+        return deriveBlockKey(H, 1, agile.encKey.hashAlgorithm, (agile.encKey.keyBits||256)/8).then(function(k_vhash){
+          return deriveBlockKey(H, 2, agile.encKey.hashAlgorithm, (agile.encKey.keyBits||256)/8).then(function(k_pkg){
+            // Om verifier-fälten finns: verifiera lösenordet först
+            function verifyIfPossible(){
+              if (!agile.encKey.encryptedVerifierHashInput || !agile.encKey.encryptedVerifierHashValue) return Promise.resolve(true);
+              var iv = ekSalt.subarray(0,16);
+              var encInp = b64ToU8(agile.encKey.encryptedVerifierHashInput);
+              var encVal = b64ToU8(agile.encKey.encryptedVerifierHashValue);
+              return aesCbcDecryptRaw(k_ver, iv, encInp.buffer).then(function(verifierInput){
+                return aesCbcDecryptRaw(k_vhash, iv, encVal.buffer).then(function(verifierValue){
+                  var algo = normalizeHashName(agile.encKey.hashAlgorithm);
+                  return digest(algo, verifierInput).then(function(calc){
+                    if (!equalPrefix(calc, verifierValue)){
+                      throw new Error('Fel lösenord (verifiering misslyckades).');
+                    }
+                    return true;
+                  });
+                });
+              });
+            }
+
+            return verifyIfPossible().then(function(){
+              // Paketnyckel: om encryptedKeyValue finns, unwrapa med k_pkg; annars använd k_pkg direkt
+              function getPackageKey(){
+                if (!agile.encKey.encryptedKeyValue) return Promise.resolve(k_pkg);
+                var encKeyBytes = b64ToU8(agile.encKey.encryptedKeyValue);
+                return aesCbcDecryptRaw(k_pkg, ekSalt.subarray(0,16), encKeyBytes.buffer).then(function(dec){ return new Uint8Array(dec).subarray(0, (agile.encKey.keyBits||256)/8); });
+              }
+              return getPackageKey().then(function(pkgKey){
+                var pkgCipher = new Uint8Array(encPkgEntry.content);
+                return aesCbcDecryptRaw(pkgKey, kdSalt.subarray(0,16), pkgCipher.buffer);
+              });
+            });
+          });
         });
       });
     }).then(function(plain){
