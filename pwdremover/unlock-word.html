@@ -261,9 +261,13 @@
                 return aesCbcDecryptRaw(k_pkg, ekSalt.subarray(0,16), encKeyBytes.buffer).then(function(dec){ return new Uint8Array(dec).subarray(0, (agile.encKey.keyBits||256)/8); });
               }
               return getPackageKey().then(function(pkgKey){
-                var pkgCipher = new Uint8Array(encPkgEntry.content);
-                return aesCbcDecryptRaw(pkgKey, kdSalt.subarray(0,16), pkgCipher.buffer);
+              // Prova IV = kdSalt (spec). Om ej ZIP, prova IV = ekSalt.
+              return tryDecryptWithIV(pkgKey, kdSalt).then(function(zipCand){
+                var looksZip = zipCand && zipCand.length>4 && zipCand[0]===0x50 && zipCand[1]===0x4B;
+                if (looksZip) return zipCand;
+                return tryDecryptWithIV(pkgKey, ekSalt);
               });
+            });
             });
           });
         });
