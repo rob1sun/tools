@@ -1,374 +1,138 @@
-<!doctype html>
+<!-- Version: 6.0 (Integrerad ESM-lösning) -->
+<!DOCTYPE html>
 <html lang="sv">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Extrahera PDF ur Word (.docx) – klient‑side (Agile/2010+) – v3.3r1</title>
-  <style>
-    :root { --bg:#0f172a; --panel:#111827ee; --accent:#22d3ee; --muted:#94a3b8; --text:#e5e7eb; --error:#f87171; --ok:#86efac; }
-    html,body{height:100%}
-    body{margin:0;background:radial-gradient(1200px 800px at 20% 10%,#1f2937 0,#0b1220 45%,#0a0f1c 100%);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;display:grid;place-items:start center;padding:40px 16px}
-    .app{width:min(980px,100%);background:var(--panel);border:1px solid #1f2937;border-radius:24px;box-shadow:0 10px 40px rgba(0,0,0,.35);overflow:hidden}
-    header{padding:28px 32px 16px;border-bottom:1px solid #1f2937}
-    header h1{margin:0 0 8px;font-size:20px}
-    header p{margin:0;color:var(--muted);font-size:14px}
-    .content{padding:24px 32px;display:grid;gap:18px}
-    .grid{display:grid;gap:14px;grid-template-columns:1fr}
-    @media (min-width:900px){.grid{grid-template-columns:1fr 1fr}}
-    .drop{border:1px dashed #334155;border-radius:16px;padding:24px;text-align:center;background:#0b1220cc;transition:.2s}
-    .drop.dragover{border-color:var(--accent);background:#0b1220f0}
-    .drop input{display:none}
-    .drop label{display:inline-block;padding:10px 14px;border-radius:12px;background:#0b1220;border:1px solid #1f2937;cursor:pointer}
-    .controls{display:grid;gap:12px;grid-template-columns:1fr auto auto;align-items:end}
-    .controls input{background:#0b1220;border:1px solid #1f2937;color:var(--text);border-radius:12px;padding:12px 14px;width:100%}
-    .toggle{display:flex;gap:8px;align-items:center;justify-content:flex-end}
-    .btn{background:linear-gradient(135deg,#06b6d4,#22d3ee);color:#002b36;font-weight:700;border:none;border-radius:12px;padding:12px 16px;cursor:pointer}
-    .btn:disabled{opacity:.6;cursor:not-allowed}
-    .hidden{display:none!important}
-    .note{font-size:13px;color:var(--muted)}
-    .status{padding:12px 14px;border-radius:12px;background:#0b1220;border:1px solid #1f2937;font-size:14px}
-    .status.ok{border-color:#14532d;color:var(--ok)}
-    .status.err{border-color:#7f1d1d;color:var(--error)}
-    .results{display:grid;gap:10px}
-    .card{display:grid;gap:8px;grid-template-columns:1fr auto;align-items:center;background:#0b1220;border:1px solid #1f2937;border-radius:12px;padding:12px 14px}
-    .chip{font-size:12px;color:#a1a1aa;border:1px solid #27272a;padding:4px 8px;border-radius:999px}
-    .download{text-decoration:none;padding:8px 12px;border-radius:10px;background:#1f2937;color:var(--text);border:1px solid #334155}
-    details{background:#0b1220;border:1px solid #1f2937;border-radius:12px;padding:12px 14px}
-    summary{cursor:pointer;color:var(--accent)}
-  </style>
-  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/cfb@1.2.2/cfb.min.js"></script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>PDF Unlocker – ESM (WASM, bevarar text/vektorer)</title>
+<style>
+  :root { --bg:#0b1020; --card:#151b2e; --muted:#9aa3b2; --accent:#7cc2ff; --err:#ff6b6b; }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(160deg,#0b1020,#0e1426 60%,#0b1020);color:#e9eef7; display: flex; align-items: center; justify-content: center; min-height: 100vh;}
+  .wrap{width: 100%; max-width:500px;margin:32px auto;padding:0 16px}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+  header h1{font-size:22px;margin:0}
+  header .badge{font-size:12px;background:#24304e;color:#cfe3ff;padding:4px 8px;border-radius:999px; white-space: nowrap;}
+  .card{background:linear-gradient(180deg,#161c31,#121829);border:1px solid #222a44;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.35);padding:24px}
+  label{font-size:13px;color:#cfd6e6;margin-bottom:6px;display:block}
+  input,button{width:100%;padding:12px 14px;border-radius:12px;border:1px solid #2a3454;background:#0f1425;color:#e9eef7;outline:none; font-size: 1rem;}
+  input::file-selector-button{border:0;background:#1d2744;color:#cfe3ff;padding:10px 12px;border-radius:10px;margin-right:10px; cursor: pointer;}
+  button{cursor:pointer;background:#1b8fff;border-color:#2d6df0;font-weight:600; transition: background-color 0.2s ease;}
+  button:hover:not(:disabled) { background-color: #389fff; }
+  button:disabled{opacity:.6;cursor:not-allowed}
+  .progress{margin-top:12px;background:#0e1425;border:1px solid #253055;border-radius:12px;overflow:hidden;height:12px}
+  .bar{height:100%;width:0%;background:linear-gradient(90deg,#3ba6ff,#43d787); transition: width 0.3s ease;}
+  .log{margin-top:10px;font-family:ui-monospace,Menlo,Consolas,monospace;background:#0a0f1d;border:1px dashed #2a3454;padding:12px;border-radius:10px;white-space:pre-wrap; word-wrap: break-word;}
+  .muted{font-size:12px;color:#9aa3b2}
+</style>
 </head>
 <body>
-  <div class="app">
+  <div class="wrap">
     <header>
-      <h1>Extrahera inbäddade PDF:er från Word</h1>
-      <p>Ren klient‑side. Stöd för <strong>Agile‑krypterade .docx (Office 2010+)</strong>. Äldre RC4/CryptoAPI och IRM stöds inte. <span id="versionHeader" style="opacity:.7">· Version v3.3r1</span></p>
+      <h1>🔓 PDF Unlocker</h1>
+      <span class="badge">Allt sker lokalt</span>
     </header>
 
-    <div class="content">
-      <div class="grid">
-        <div class="drop" id="drop">
-          <input type="file" id="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/octet-stream" />
-          <p>Släpp din <strong>.docx</strong> här eller</p>
-          <label for="file">välj fil…</label>
-          <p class="note">Kräver https/localhost för WebCrypto.</p>
-        </div>
-        <div class="controls">
-          <div>
-            <label for="password" class="note">Lösenord</label>
-            <input type="password" id="password" placeholder="Om filen är krypterad" />
-          </div>
-          <div class="toggle">
-            <input type="checkbox" id="agile" />
-            <label for="agile" class="note">Dekryptera Agile (beta)</label>
-          </div>
-          <button class="btn" id="go" disabled>Analysera & extrahera</button>
-        </div>
+    <div class="card">
+      <label>Steg 1 &middot; Välj lösenordsskyddad PDF</label>
+      <input id="file" type="file" accept="application/pdf" />
+      <div class="muted">Filen lämnar aldrig din dator.</div>
+
+      <label style="margin-top:12px">Steg 2 &middot; Ange lösenord</label>
+      <input id="pwd" type="password" placeholder="Lämna tomt om inget lösenord krävs för att öppna" />
+
+      <label style="margin-top:12px">Filnamn på utdata</label>
+      <input id="outName" type="text" placeholder="min-fil-unlocked.pdf" />
+
+      <div style="margin-top:14px">
+        <button id="go">Lås upp och spara PDF</button>
       </div>
 
-      <details id="diag"><summary>Diagnostik</summary><pre id="diagpre" class="note"></pre><div id="verStatus" class="note" style="margin-top:8px"></div></details>
-      <div id="status" class="status hidden"></div>
-      <div class="results" id="results"></div>
+      <div class="progress" style="margin-top:14px"><div id="bar" class="bar"></div></div>
+      <div id="status" class="log" style="display:none"></div>
+      <div class="muted" style="margin-top:8px">OBS: Du behöver känna till lösenordet. Respektera upphovsrätt.</div>
     </div>
   </div>
-  <footer style="padding:10px 24px 24px;color:#94a3b8;font-size:12px">
-    <span id="version">Version v3.3r1</span> · Allt sker lokalt i din webbläsare.
-  </footer>
 
-<script>
-// v3.3r1 – stabil uppladdning + valbar Agile-dekryptering + robust paketutskärning + diagnostik alltid på
-(function(){
-  // --- DOM ---
-  var drop = document.getElementById('drop');
-  var fileInput = document.getElementById('file');
-  var goBtn = document.getElementById('go');
-  var statusEl = document.getElementById('status');
-  var resultsEl = document.getElementById('results');
-  var passEl = document.getElementById('password');
-  var agileEl = document.getElementById('agile');
-  var diag = document.getElementById('diag');
-  var diagpre = document.getElementById('diagpre');
-  var verEl = document.getElementById('verStatus');
-  var pickedFile = null;
+  <script type="module">
+    // Importerar en ESM-version av qpdf-wasm där .wasm-filen är inbäddad.
+    // Detta gör att vi slipper hantera flera filer.
+    import QPDF from "https://cdn.jsdelivr.net/npm/qpdf-wasm-esm-embedded@1.1.1/+esm";
 
-  // --- UI helpers ---
-  function setStatus(msg, type){
-    if (!statusEl) return;
-    statusEl.className = 'status';
-    if (!msg){ statusEl.classList.add('hidden'); return; }
-    statusEl.classList.remove('hidden');
-    statusEl.textContent = msg;
-    if (type === 'ok') statusEl.classList.add('ok');
-    if (type === 'err') statusEl.classList.add('err');
-  }
-  function humanSize(n){
-    if (n < 1024) return n + ' B';
-    if (n < 1024*1024) return (n/1024).toFixed(1) + ' kB';
-    if (n < 1024*1024*1024) return (n/1024/1024).toFixed(1) + ' MB';
-    return (n/1024/1024/1024).toFixed(1) + ' GB';
-  }
-  function onFiles(files){
-    var f = files && files[0];
-    if (!f) return;
-    pickedFile = f;
-    if (goBtn) goBtn.disabled = false;
-    setStatus('Vald fil: ' + f.name + ' (' + humanSize(f.size) + ')', 'ok');
-    if (resultsEl) resultsEl.innerHTML = '';
-  }
+    const $ = (id) => document.getElementById(id);
+    const fileEl = $('file'), pwdEl = $('pwd'), outEl = $('outName'), goEl = $('go');
+    const bar = $('bar'), status = $('status');
 
-  if (fileInput){ fileInput.addEventListener('change', function(e){ onFiles(e.target.files); }); }
-  if (drop){
-    ['dragenter','dragover'].forEach(function(ev){ drop.addEventListener(ev, function(e){ e.preventDefault(); e.stopPropagation(); drop.classList.add('dragover'); }); });
-    ['dragleave','drop'].forEach(function(ev){ drop.addEventListener(ev, function(e){ e.preventDefault(); e.stopPropagation(); drop.classList.remove('dragover'); }); });
-    drop.addEventListener('drop', function(e){ onFiles(e.dataTransfer.files); });
-  }
-
-  // --- Binary helpers ---
-  function readAsArrayBuffer(file){ return new Promise(function(res,rej){ var fr=new FileReader(); fr.onload=function(){res(fr.result)}; fr.onerror=function(){rej(fr.error||'filfel')}; fr.readAsArrayBuffer(file); }); }
-  function isZip(u8){ var sigs=[[0x50,0x4B,0x03,0x04],[0x50,0x4B,0x05,0x06],[0x50,0x4B,0x07,0x08]]; for (var i=0;i<sigs.length;i++){ var s=sigs[i]; var ok=true; for (var j=0;j<4;j++){ if (u8[j]!==s[j]) {ok=false; break;} } if (ok){ return true; } } return false; }
-  function isCFB(u8){ var sig=[0xD0,0xCF,0x11,0xE0,0xA1,0xB1,0x1A,0xE1]; for (var i=0;i<8;i++){ if (u8[i]!==sig[i]) return false; } return true; }
-
-  // --- WebCrypto helpers ---
-  var subtle = (crypto && crypto.subtle) ? crypto.subtle : null;
-  var asciiDecoder = new TextDecoder('ascii');
-  var utf8Decoder = new TextDecoder('utf-8');
-  function encU16(str){ var buf=new Uint8Array(str.length*2); for (var i=0;i<str.length;i++){ var c=str.charCodeAt(i); buf[i*2]=c&0xFF; buf[i*2+1]=c>>>8; } return buf; }
-  function b64ToU8(b64){ var bin=atob(b64); var u8=new Uint8Array(bin.length); for (var i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i); return u8; }
-  function le32(i){ return new Uint8Array([i & 0xFF,(i>>>8)&0xFF,(i>>>16)&0xFF,(i>>>24)&0xFF]); }
-  function concat(){ var total=0; for (var i=0;i<arguments.length;i++) total+=arguments[i].length; var out=new Uint8Array(total), off=0; for (var j=0;j<arguments.length;j++){ out.set(arguments[j], off); off+=arguments[j].length; } return out; }
-  function digest(name, dataU8){ return subtle.digest(name, dataU8).then(function(buf){ return new Uint8Array(buf); }); }
-  function aesCbcDecryptRaw(keyBytes, iv, data){
-    return subtle.importKey('raw', keyBytes, {name:'AES-CBC'}, false, ['decrypt']).then(function(key){
-      return subtle.decrypt({name:'AES-CBC', iv:iv}, key, data);
-    }).then(function(res){ return new Uint8Array(res); });
-  }
-  function normalizeHashName(n){ n = (n||'').toUpperCase(); if (n.indexOf('512')!==-1) return 'SHA-512'; if (n.indexOf('384')!==-1) return 'SHA-384'; if (n.indexOf('256')!==-1) return 'SHA-256'; return 'SHA-1'; }
-
-  // --- Agile parsing & derivation ---
-  function parseAgileXMLFromEncryptionInfo(u8){
-    var s = asciiDecoder.decode(u8);
-    var ix = s.indexOf('<encryption');
-    if (ix === -1) return null;
-    var xml = s.slice(ix);
-    var doc = new DOMParser().parseFromString(xml, 'application/xml');
-    function get(el, attr){ return el ? el.getAttribute(attr) : null; }
-    var keyData = doc.querySelector('keyData');
-    var ke = doc.querySelector('keyEncryptors > keyEncryptor[uri][uri*="password"] > encryptedKey');
-    if (!keyData || !ke) return null;
-    return {
-      keyData: {
-        cipherAlgorithm: get(keyData, 'cipherAlgorithm')||'AES',
-        cipherChaining: get(keyData, 'cipherChaining')||'ChainingModeCBC',
-        hashAlgorithm: get(keyData, 'hashAlgorithm')||'SHA1',
-        saltValue: get(keyData, 'saltValue')||'',
-        saltSize: +(get(keyData, 'saltSize')||'16'),
-        blockSize: +(get(keyData, 'blockSize')||'16'),
-        keyBits: +(get(keyData, 'keyBits')||'256')
-      },
-      encKey: {
-        spinCount: +(get(ke,'spinCount')||'100000'),
-        saltValue: get(ke,'saltValue')||'',
-        hashAlgorithm: get(ke,'hashAlgorithm')||'SHA1',
-        cipherAlgorithm: get(ke,'cipherAlgorithm')||'AES',
-        cipherChaining: get(ke,'cipherChaining')||'ChainingModeCBC',
-        keyBits: +(get(ke,'keyBits')||'256'),
-        encryptedKeyValue: (ke.textContent||'').trim(),
-        encryptedVerifierHashInput: get(ke,'encryptedVerifierHashInput'),
-        encryptedVerifierHashValue: get(ke,'encryptedVerifierHashValue')
-      }
-    };
-  }
-  function deriveAgileBaseH(password, salt, spinCount, hashName){
-    var hashAlgo = normalizeHashName(hashName);
-    var pwU16 = encU16(password);
-    return digest(hashAlgo, concat(salt, pwU16)).then(function(h){
-      var i=0;
-      function loop(){
-        if (i>=spinCount) return h;
-        var next = concat(h, le32(i)); i++;
-        return digest(hashAlgo, next).then(function(h2){ h = h2; return loop(); });
-      }
-      return loop();
-    });
-  }
-  function deriveBlockKey(h, blockId, hashName, keyBytesLen){
-    var hashAlgo = normalizeHashName(hashName);
-    return digest(hashAlgo, concat(h, le32(blockId))).then(function(b){
-      var out = new Uint8Array(keyBytesLen);
-      var take = Math.min(keyBytesLen, b.length);
-      out.set(b.subarray(0, take), 0);
-      return out;
-    });
-  }
-  function equalPrefix(a,b){
-    var n = Math.min(a.length, b.length);
-    for (var i=0;i<n;i++){ if (a[i]!==b[i]) return false; }
-    return true;
-  }
-
-  function tryAgileDecrypt(cfb, password){
-    var encInfoEntry = null, encPkgEntry = null;
-    for (var i=0;i<cfb.FileIndex.length;i++){
-      var e = cfb.FileIndex[i];
-      if (e.name === 'EncryptionInfo') encInfoEntry = e;
-      if (e.name === 'EncryptedPackage') encPkgEntry = e;
+    function setProgress(p, msg){
+      bar.style.width = Math.max(0, Math.min(100, p)) + '%';
+      if(msg){ status.style.display = 'block'; status.textContent = msg; }
     }
-    if (!encInfoEntry || !encPkgEntry) return Promise.reject(new Error('Saknar EncryptionInfo/EncryptedPackage'));
+    function saveBlob(name, data){
+      const url = URL.createObjectURL(new Blob([data], {type:'application/pdf'}));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a); // Nödvändigt för Firefox
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(()=>URL.revokeObjectURL(url), 4000);
+    }
+    function humanError(e){
+      const s = (e && (e.message || String(e))) || 'Okänt fel.';
+      if(/password/i.test(s) && /(wrong|invalid|incorrect)/i.test(s)) return 'Fel lösenord – försök igen.';
+      if(/encrypted/i.test(s) && /no password/i.test(s)) return 'Filen kräver ett lösenord för att öppnas.';
+      return s;
+    }
+    function suggestOutName(){
+      const f = fileEl.files && fileEl.files[0];
+      if(f && !outEl.value) outEl.value = f.name.replace(/\.pdf$/i,'') + '-unlocked.pdf';
+    }
+    fileEl.addEventListener('change', suggestOutName);
 
-    var infoU8 = new Uint8Array(encInfoEntry.content);
-    var agile = parseAgileXMLFromEncryptionInfo(infoU8);
-    if (!agile) return Promise.reject(new Error('Inte Agile‑kryptering (eller XML kunde inte läsas).'));
+    async function run(){
+      const f = fileEl.files && fileEl.files[0];
+      if(!f){ setProgress(0,'Välj en PDF-fil först.'); return; }
+      const pwd = (pwdEl.value || '').trim();
+      const outName = (outEl.value || f.name.replace(/\.pdf$/i,'-unlocked.pdf')).replace(/\s+/g,'-');
 
-    // Diagnostik
-    try { if (diag && diagpre){ diag.classList.remove('hidden'); var hasVF = !!(agile.encKey.encryptedVerifierHashInput && agile.encKey.encryptedVerifierHashValue); var d = { keyData: agile.keyData, encKey: { spinCount: agile.encKey.spinCount, hashAlgorithm: agile.encKey.hashAlgorithm, keyBits: agile.encKey.keyBits, hasEncryptedKeyValue: !!agile.encKey.encryptedKeyValue, hasVerifierFields: hasVF } }; diagpre.textContent = JSON.stringify(d, null, 2); if (verEl) verEl.textContent = hasVF ? 'Verifiering: väntar…' : 'Verifiering: ej tillgänglig (saknas fält)'; } } catch(e){}
+      goEl.disabled = true; status.style.display = 'block'; status.textContent = '';
+      try{
+        setProgress(5,'Läser in fil...');
+        const inBytes = new Uint8Array(await f.arrayBuffer());
 
-    var kdSalt = b64ToU8(agile.keyData.saltValue);
-    var ekSalt = b64ToU8(agile.encKey.saltValue);
-    var keyLen = (agile.encKey.keyBits||256)/8;
+        setProgress(20,'Initierar QPDF (WASM)...');
+        const qpdf = await QPDF();
 
-    function tryDecryptWithIV(pkgKey, iv){
-      var pkgCipher = new Uint8Array(encPkgEntry.content);
-      return aesCbcDecryptRaw(pkgKey, iv.subarray(0,16), pkgCipher.buffer).then(function(plain){
-        // EncryptedPackage = [8 byte LE-längd] + ZIP
-        var start = 8; var size = 0;
-        try {
-          var dv = new DataView(plain.buffer, plain.byteOffset, plain.byteLength);
-          var lo = dv.getUint32(0, true)>>>0;
-          var hi = dv.getUint32(4, true)>>>0;
-          var max = plain.length - start;
-          var big = hi * 4294967296 + lo;
-          if (big > 0) size = big > max ? max : big;
-        } catch(e){}
-        var cand = size>0 ? plain.subarray(start, start+size) : plain.subarray(start);
-        // Fallback: PK-signatur
-        if (!(cand && cand.length>4 && cand[0]===0x50 && cand[1]===0x4B)){
-          for (var i=0;i+4<=plain.length;i++){
-            if (plain[i]===0x50 && plain[i+1]===0x4B && plain[i+2]===0x03 && plain[i+3]===0x04){ cand = plain.subarray(i); break; }
-          }
-        }
-        try { if (verEl) verEl.textContent += ' | len='+size+' bytes'; } catch(e){}
-        return cand;
-      });
+        const IN = "/in.pdf", OUT = "/out.pdf";
+        try { if(qpdf.FS.analyzePath(IN).exists) qpdf.FS.unlink(IN); } catch{}
+        try { if(qpdf.FS.analyzePath(OUT).exists) qpdf.FS.unlink(OUT); } catch{}
+
+        setProgress(35,'Skriver indata till virtuellt filsystem...');
+        qpdf.FS.writeFile(IN, inBytes);
+
+        setProgress(60,'Dekrypterar...');
+        const args = pwd
+          ? [`--password=${pwd}`, '--decrypt', IN, OUT]
+          : ['--decrypt', IN, OUT]; // Hanterar filer med endast ägarlösenord
+
+        qpdf.callMain(args); // Kastar ett fel om lösenordet är fel
+
+        setProgress(80,'Läser resultat...');
+        const outBytes = qpdf.FS.readFile(OUT);
+
+        setProgress(95,'Sparar fil...');
+        saveBlob(outName, outBytes);
+        setProgress(100,'Klar! Sparade okrypterad PDF.');
+      }catch(err){
+        setProgress(0, ''); // Nollställ progressbaren vid fel
+        status.textContent = '❌ ' + humanError(err);
+      }finally{
+        goEl.disabled = false;
+      }
     }
 
-    return deriveAgileBaseH(password, ekSalt, agile.encKey.spinCount, agile.encKey.hashAlgorithm).then(function(H){
-      return deriveBlockKey(H, 0, agile.encKey.hashAlgorithm, keyLen).then(function(k_ver){
-        return deriveBlockKey(H, 1, agile.encKey.hashAlgorithm, keyLen).then(function(k_vhash){
-          return deriveBlockKey(H, 2, agile.encKey.hashAlgorithm, keyLen).then(function(k_pkg){
-            function verifyIfPossible(){
-              if (!agile.encKey.encryptedVerifierHashInput || !agile.encKey.encryptedVerifierHashValue) { if (verEl) verEl.textContent = 'Verifiering: ej tillgänglig (saknas fält)'; return Promise.resolve(true); }
-              var iv = ekSalt.subarray(0,16);
-              var encInp = b64ToU8(agile.encKey.encryptedVerifierHashInput);
-              var encVal = b64ToU8(agile.encKey.encryptedVerifierHashValue);
-              return aesCbcDecryptRaw(k_ver, iv, encInp.buffer).then(function(verifierInput){
-                return aesCbcDecryptRaw(k_vhash, iv, encVal.buffer).then(function(verifierValue){
-                  var algo = normalizeHashName(agile.encKey.hashAlgorithm);
-                  return digest(algo, verifierInput).then(function(calc){
-                    if (!equalPrefix(calc, verifierValue)){
-                      if (verEl) verEl.textContent = 'Verifiering: FEL (lösenord matchar inte)';
-                      throw new Error('Fel lösenord (verifiering misslyckades).');
-                    }
-                    if (verEl) verEl.textContent = 'Verifiering: OK';
-                    return true;
-                  });
-                });
-              });
-            }
-
-            return verifyIfPossible().then(function(){
-              function getPackageKey(){
-                if (!agile.encKey.encryptedKeyValue) return Promise.resolve(k_pkg);
-                var encKeyBytes = b64ToU8(agile.encKey.encryptedKeyValue);
-                return aesCbcDecryptRaw(k_pkg, ekSalt.subarray(0,16), encKeyBytes.buffer).then(function(dec){ return new Uint8Array(dec).subarray(0, keyLen); });
-              }
-              return getPackageKey().then(function(pkgKey){
-                // Prova IV = kdSalt (spec). Om ej ZIP, prova IV = ekSalt, sedan noll-IV.
-                return tryDecryptWithIV(pkgKey, kdSalt).then(function(zipCand){
-                  var looksZip = zipCand && zipCand.length>4 && zipCand[0]===0x50 && zipCand[1]===0x4B;
-                  if (looksZip) return zipCand;
-                  return tryDecryptWithIV(pkgKey, ekSalt);
-                }).then(function(zipCand2){
-                  var looksZip2 = zipCand2 && zipCand2.length>4 && zipCand2[0]===0x50 && zipCand2[1]===0x4B;
-                  if (looksZip2) return zipCand2;
-                  var zeros = new Uint8Array(16);
-                  return tryDecryptWithIV(pkgKey, zeros);
-                });
-              });
-            });
-          });
-        });
-      });
-    }).then(function(zipBytes){
-      if (!(zipBytes && zipBytes.length>4 && zipBytes[0]===0x50 && zipBytes[1]===0x4B)){
-        throw new Error('Dekryptering klar men ZIP kunde inte identifieras.');
-      }
-      return zipBytes;
-    });
-  }
-
-  // --- ZIP extraction ---
-  function addResult(name, bytes){
-    var url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
-    var card = document.createElement('div'); card.className='card';
-    var left = document.createElement('div'); var right = document.createElement('div');
-    var title = document.createElement('div'); title.innerHTML = '<strong>'+name+'</strong>';
-    var meta = document.createElement('div'); meta.innerHTML = '<span class="chip">'+(bytes.length>0? (Math.round(bytes.length/102.4)/10)+' MB' : 'okänd')+'</span>';
-    left.appendChild(title); left.appendChild(meta);
-    var a = document.createElement('a'); a.href=url; a.download = name.indexOf('.pdf')!==-1?name:(name+'.pdf'); a.textContent='Ladda ner'; a.className='download';
-    right.appendChild(a); card.appendChild(left); card.appendChild(right); if (resultsEl) resultsEl.appendChild(card);
-  }
-  function extractFromDocxZip(u8){
-    return JSZip.loadAsync(u8).catch(function(err){ setStatus('JSZip-fel: '+(err && err.message? err.message: String(err)), 'err'); throw err; }).then(function(zip){
-      var files = Object.values(zip.files);
-      var embeddings = files.filter(function(f){ return f.name.indexOf('word/embeddings/')===0 && !f.dir; });
-      var tasks = [];
-      // direkt PDF
-      embeddings.filter(function(f){ return /\.pdf$/i.test(f.name); }).forEach(function(f){
-        tasks.push(f.async('arraybuffer').then(function(ab){ var bytes=new Uint8Array(ab); if (bytes[0]===0x25&&bytes[1]===0x50&&bytes[2]===0x44&&bytes[3]===0x46) addResult(f.name.split('/').pop(), bytes); }));
-      });
-      // OLE‑bin
-      embeddings.filter(function(f){ return /\.bin$/i.test(f.name); }).forEach(function(f){
-        tasks.push(f.async('arraybuffer').then(function(ab){
-          try {
-            var cfb = CFB.read(new Uint8Array(ab), { type:'array' });
-            var entry=null; for (var i=0;i<cfb.FileIndex.length;i++){ var en=cfb.FileIndex[i]; if (/(Ole10Native|Package|CONTENTS)$/.test(en.name)){ entry=en; break; } }
-            if (entry && entry.content){
-              var bytes=new Uint8Array(entry.content); var i=0; for (; i+4<=bytes.length; i++){ if (bytes[i]===0x25&&bytes[i+1]===0x50&&bytes[i+2]===0x44&&bytes[i+3]===0x46) break; }
-              var pdf=bytes.subarray(i); if (pdf.length>=4 && pdf[0]===0x25&&pdf[1]===0x50&&pdf[2]===0x44&&pdf[3]===0x46) addResult((f.name.split('/').pop()||'inbäddad')+'.pdf', pdf);
-            }
-          } catch(e){ console.warn('OLE‑tolkning misslyckades', f.name, e); }
-        }));
-      });
-      return Promise.all(tasks).then(function(){ if (!resultsEl.children.length) setStatus('Hittade inga inbäddade PDF:er i dokumentet.', 'err'); else setStatus('Klart! Hittade '+resultsEl.children.length+' PDF‑fil(er).', 'ok'); });
-    });
-  }
-
-  // --- Main ---
-  function onGo(){
-    if (!pickedFile){ setStatus('Ingen fil vald.', 'err'); return; }
-    if (diag) diag.classList.remove('hidden');
-    resultsEl.innerHTML = '';
-    setStatus('Läser fil …');
-    readAsArrayBuffer(pickedFile).then(function(ab){
-      var u8 = new Uint8Array(ab);
-      var password = passEl && passEl.value ? passEl.value : '';
-      if (isZip(u8)){
-        setStatus('Upptäckte okrypterad .docx. Extraherar …');
-        return extractFromDocxZip(u8);
-      }
-      if (!isCFB(u8)) throw new Error('Okänt format – förväntade .docx (ZIP) eller krypterad .docx (CFB).');
-      if (!agileEl || !agileEl.checked){ setStatus('Det här ser ut som en krypterad .docx (CFB). Kryssa i "Dekryptera Agile (beta)" för att försöka dekryptera.', 'err'); return; }
-      if (!password) { setStatus('Ange lösenord för dekryptering.', 'err'); return; }
-      if (!subtle){ setStatus('WebCrypto saknas i denna miljö (kräver https/localhost).', 'err'); return; }
-      setStatus('Dekrypterar (Agile/2010+) …');
-      var cfb = CFB.read(u8, { type:'array' });
-      return tryAgileDecrypt(cfb, password).then(function(decZip){ setStatus('Dekryptering klar. Extraherar …'); return extractFromDocxZip(decZip); });
-    }).catch(function(err){ console.error(err); setStatus('Fel: '+(err && err.message? err.message : String(err)), 'err'); });
-  }
-
-  if (goBtn){ goBtn.addEventListener('click', onGo); }
-})();
-</script>
+    goEl.addEventListener('click', run);
+    pwdEl.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') run(); });
+  </script>
 </body>
 </html>
