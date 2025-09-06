@@ -43,7 +43,7 @@
   <div class="app">
     <header>
       <h1>Extrahera inbäddade PDF:er från Word</h1>
-      <p>Ren klient‑side. Stöd för <strong>Agile‑krypterade .docx (Office 2010+)</strong>. Äldre RC4/CryptoAPI och IRM stöds inte.</p>
+      <p>Ren klient‑side. Stöd för <strong>Agile‑krypterade .docx (Office 2010+)</strong>. Äldre RC4/CryptoAPI och IRM stöds inte. <span id="versionHeader" style="opacity:.7">· Version v3.2</span></p>
     </header>
 
     <div class="content">
@@ -67,13 +67,13 @@
         </div>
       </div>
 
-      <details id="diag" class="hidden"><summary>Diagnostik</summary><pre id="diagpre" class="note"></pre></details>
+      <details id="diag" class="hidden"><summary>Diagnostik</summary><pre id="diagpre" class="note"></pre><div id="verStatus" class="note" style="margin-top:8px"></div></details>
       <div id="status" class="status hidden"></div>
       <div class="results" id="results"></div>
     </div>
   </div>
   <footer style="padding:10px 24px 24px;color:#94a3b8;font-size:12px">
-    <span id="version">Version v3.1</span> · Allt sker lokalt i din webbläsare.
+    <span id="version">Version v3.2</span> · Allt sker lokalt i din webbläsare.
   </footer>
 
 <script>
@@ -89,6 +89,7 @@
   var agileEl = document.getElementById('agile');
   var diag = document.getElementById('diag');
   var diagpre = document.getElementById('diagpre');
+  var verEl = document.getElementById('verStatus');
   var pickedFile = null;
 
   // --- UI helpers ---
@@ -125,7 +126,8 @@
 
   // --- Binary helpers ---
   function readAsArrayBuffer(file){ return new Promise(function(res,rej){ var fr=new FileReader(); fr.onload=function(){res(fr.result)}; fr.onerror=function(){rej(fr.error||'filfel')}; fr.readAsArrayBuffer(file); }); }
-  function isZip(u8){ var sigs=[[0x50,0x4B,0x03,0x04],[0x50,0x4B,0x05,0x06],[0x50,0x4B,0x07,0x08]]; for (var i=0;i<sigs.length;i++){ var s=sigs[i]; var ok=true; for (var j=0;j<4;j++){ if (u8[j]!==s[j]) {ok=false; break;} } if (ok) return true; } return false; }
+  function isZip(u8){ var sigs=[[0x50,0x4B,0x03,0x04],[0x50,0x4B,0x05,0x06],[0x50,0x4B,0x07,0x08]]; for (var i=0;i<sigs.length;i++){ var s=sigs[i]; var ok=true; for (var j=0;j<4;j++){ if (u8[j]!==s[j]) {ok=false; break;} } if (ok) if (verEl) verEl.textContent = 'Verifiering: OK';
+                    return true; } return false; }
   function isCFB(u8){ var sig=[0xD0,0xCF,0x11,0xE0,0xA1,0xB1,0x1A,0xE1]; for (var i=0;i<8;i++){ if (u8[i]!==sig[i]) return false; } return true; }
 
   // --- WebCrypto helpers ---
@@ -220,7 +222,7 @@
     if (!agile) return Promise.reject(new Error('Inte Agile‑kryptering (eller XML kunde inte läsas).'));
 
     // Diagnostik
-    try { if (diag && diagpre){ diag.classList.remove('hidden'); var d = { keyData: agile.keyData, encKey: { spinCount: agile.encKey.spinCount, hashAlgorithm: agile.encKey.hashAlgorithm, keyBits: agile.encKey.keyBits, hasEncryptedKeyValue: !!agile.encKey.encryptedKeyValue, hasVerifierFields: !!(agile.encKey.encryptedVerifierHashInput && agile.encKey.encryptedVerifierHashValue) } }; diagpre.textContent = JSON.stringify(d, null, 2); } } catch(e){}
+    try { if (diag && diagpre){ diag.classList.remove('hidden'); var hasVF = !!(agile.encKey.encryptedVerifierHashInput && agile.encKey.encryptedVerifierHashValue); var d = { keyData: agile.keyData, encKey: { spinCount: agile.encKey.spinCount, hashAlgorithm: agile.encKey.hashAlgorithm, keyBits: agile.encKey.keyBits, hasEncryptedKeyValue: !!agile.encKey.encryptedKeyValue, hasVerifierFields: hasVF } }; diagpre.textContent = JSON.stringify(d, null, 2); if (verEl) verEl.textContent = hasVF ? 'Verifiering: väntar…' : 'Verifiering: ej tillgänglig (saknas fält)'; } } catch(e){}
 
     var kdSalt = b64ToU8(agile.keyData.saltValue);
     var ekSalt = b64ToU8(agile.encKey.saltValue);
@@ -233,7 +235,7 @@
           return deriveBlockKey(H, 2, agile.encKey.hashAlgorithm, (agile.encKey.keyBits||256)/8).then(function(k_pkg){
             // Om verifier-fälten finns: verifiera lösenordet först
             function verifyIfPossible(){
-              if (!agile.encKey.encryptedVerifierHashInput || !agile.encKey.encryptedVerifierHashValue) return Promise.resolve(true);
+              if (!agile.encKey.encryptedVerifierHashInput || !agile.encKey.encryptedVerifierHashValue) { if (verEl) verEl.textContent = 'Verifiering: ej tillgänglig (saknas fält)'; return Promise.resolve(true); }
               var iv = ekSalt.subarray(0,16);
               var encInp = b64ToU8(agile.encKey.encryptedVerifierHashInput);
               var encVal = b64ToU8(agile.encKey.encryptedVerifierHashValue);
@@ -242,7 +244,8 @@
                   var algo = normalizeHashName(agile.encKey.hashAlgorithm);
                   return digest(algo, verifierInput).then(function(calc){
                     if (!equalPrefix(calc, verifierValue)){
-                      throw new Error('Fel lösenord (verifiering misslyckades).');
+                    if (verEl) verEl.textContent = 'Verifiering: FEL (lösenord matchar inte)';
+                    throw new Error('Fel lösenord (verifiering misslyckades).');
                     }
                     return true;
                   });
