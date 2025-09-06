@@ -269,10 +269,23 @@
         });
       });
     }).then(function(plain){
-      // Leta ZIP
-      var start=-1; for (var i=0;i+4<=plain.length;i++){ if (plain[i]===0x50 && plain[i+1]===0x4B && plain[i+2]===0x03 && plain[i+3]===0x04){ start=i; break; } }
-      if (start===-1) throw new Error('Kunde inte hitta ZIP‑signatur efter dekryptering (fel lösenord/algoritm).');
-      return plain.subarray(start);
+      // EncryptedPackage-format: första 8 byte = längden (LE). Läs ut exakt paketet.
+      try {
+        var dv = new DataView(plain.buffer, plain.byteOffset, plain.byteLength);
+        var sizeLo = dv.getUint32(0, true);
+        var sizeHi = dv.getUint32(4, true);
+        // De flesta filer använder bara low-dword; om hi=0, använd sizeLo; annars kombinera till 64-bit (om ryms).
+        var size = sizeHi === 0 ? sizeLo : sizeLo; // konservativt; kan vid behov utökas till BigInt
+        var start = 8;
+        var end = start + size;
+        if (size > 0 && end <= plain.length){
+          return plain.subarray(start, end);
+        }
+      } catch (e) { /* fall back nedan */ }
+      // Fallback: leta efter ZIP-signatur om längden inte gick att tolka
+      var s=-1; for (var i=0;i+4<=plain.length;i++){ if (plain[i]===0x50 && plain[i+1]===0x4B && plain[i+2]===0x03 && plain[i+3]===0x04){ s=i; break; } }
+      if (s===-1) throw new Error('Dekryptering klar men kunde inte tolka EncryptedPackage (ZIP hittades inte).');
+      return plain.subarray(s);
     });
   }
 
