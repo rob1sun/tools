@@ -8,7 +8,7 @@
   {
     "name": "DNS Check",
     "description": "Analysera DNS-konfigurationer.",
-    "image": "images/dnscheck.svg",
+    "image": "images/dnscheck.png",
     "url": "https://dnscheck.iis.se"
   },
   {
@@ -18,3 +18,4 @@
     "url": "https://webbriktlinjer.se"
   }
 ]
+
