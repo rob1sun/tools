@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luffarschack med WebRTC (Enkel)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peer.min.js"></script>
+    <style>
+        /* Anpassad stil för en trevligare spelkänsla */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .cell {
+            transition: background-color 0.2s ease-in-out;
+        }
+        .cell:hover:not(.disabled) {
+            background-color: #374151; /* gray-700 */
+        }
+        .cell.disabled {
+            cursor: not-allowed;
+        }
+        #connection-box, #game-container {
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        #my-peer-id {
+            -webkit-user-select: all; /* iOS Safari */
+            -ms-user-select: all; /* IE 10+ */
+            user-select: all; /* Standard syntax */
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-md mx-auto">
+        <h1 class="text-4xl font-bold text-center mb-6 text-cyan-400">Luffarschack</h1>
+
+        <!-- Anslutningssektion -->
+        <div id="connection-box" class="bg-gray-800 bg-opacity-70 p-6 rounded-lg shadow-xl mb-6 space-y-4">
+            <div>
+                <label for="my-peer-id" class="block text-sm font-medium mb-1">Ditt Spel-ID</label>
+                <div class="flex space-x-2">
+                    <input type="text" id="my-peer-id" class="w-full bg-gray-900 border border-gray-600 rounded-md p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" readonly placeholder="Hämtar ID...">
+                    <button id="copy-id-btn" class="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-2 px-4 rounded-md transition duration-200">Kopiera</button>
+                </div>
+                 <button id="new-id-btn" class="mt-2 w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-md transition duration-200 text-xs">Generera nytt ID</button>
+            </div>
+            
+            <hr class="border-gray-600">
+
+            <div>
+                <label for="opponent-id" class="block text-sm font-medium mb-1">Anslut till motståndare</label>
+                <input type="text" id="opponent-id" class="w-full bg-gray-900 border border-gray-600 rounded-md p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="Klistra in motståndarens ID här...">
+            </div>
+            <button id="connect-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition duration-200">Anslut</button>
+        </div>
+
+        <!-- Spelsektion -->
+        <div id="game-container" class="hidden bg-gray-800 bg-opacity-70 p-6 rounded-lg shadow-xl">
+            <div id="status" class="text-center text-lg font-medium mb-4 h-8">Väntar på anslutning...</div>
+            <div id="board" class="grid grid-cols-3 gap-3 mx-auto w-64 h-64 md:w-80 md:h-80">
+                <!-- Cellerna genereras av JavaScript -->
+            </div>
+            <button id="reset-btn" class="mt-6 w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md transition duration-200">Spela igen</button>
+        </div>
+    </div>
+
+    <script>
+        // DOM Element
+        const connectBtn = document.getElementById('connect-btn');
+        const copyIdBtn = document.getElementById('copy-id-btn');
+        const newIdBtn = document.getElementById('new-id-btn');
+        const myPeerIdInput = document.getElementById('my-peer-id');
+        const opponentIdInput = document.getElementById('opponent-id');
+        const boardDiv = document.getElementById('board');
+        const statusDiv = document.getElementById('status');
+        const resetBtn = document.getElementById('reset-btn');
+        const connectionBox = document.getElementById('connection-box');
+        const gameContainer = document.getElementById('game-container');
+
+        // PeerJS & Spelvariabler
+        let peer;
+        let conn;
+        let boardState = Array(9).fill(null);
+        let myTurn = false;
+        let playerSymbol = '';
+        let gameActive = true;
+
+        // ----- Initialisering -----
+        function init() {
+            initializePeer();
+
+            connectBtn.addEventListener('click', connectToPeer);
+            copyIdBtn.addEventListener('click', copyIdToClipboard);
+            newIdBtn.addEventListener('click', generateNewId);
+            resetBtn.addEventListener('click', sendReset);
+
+            // Skapa spelbrädet
+            for (let i = 0; i < 9; i++) {
+                const cell = document.createElement('div');
+                cell.classList.add('cell', 'bg-gray-800', 'border', 'border-gray-600', 'rounded-md', 'flex', 'items-center', 'justify-center', 'text-5xl', 'md:text-6xl', 'font-bold', 'cursor-pointer');
+                cell.dataset.index = i;
+                cell.addEventListener('click', handleCellClick);
+                boardDiv.appendChild(cell);
+            }
+        }
+
+        // ----- PeerJS-logik -----
+
+        function initializePeer() {
+            // Försök hämta sparat ID, annars genererar PeerJS ett nytt
+            const savedId = localStorage.getItem('peer-id');
+            peer = new Peer(savedId);
+
+            peer.on('open', (id) => {
+                console.log('My peer ID is: ' + id);
+                myPeerIdInput.value = id;
+                localStorage.setItem('peer-id', id);
+            });
+
+            // Lyssnar efter inkommande anslutningar (agerar som värd)
+            peer.on('connection', (newConn) => {
+                conn = newConn;
+                playerSymbol = 'X'; // Värden är alltid X
+                myTurn = true;
+                setupConnectionEvents();
+            });
+            
+            peer.on('error', (err) => {
+                console.error("PeerJS Error:", err);
+                if (err.type === 'unavailable-id') {
+                    alert('Detta ID är upptaget. Ett nytt ID har genererats.');
+                    localStorage.removeItem('peer-id'); // Ta bort det ogiltiga ID:t
+                    peer.destroy(); // Förstör den gamla peer-instansen
+                    initializePeer(); // Försök igen utan ett sparat ID
+                } else {
+                     alert('Ett anslutningsfel uppstod. Kontrollera konsolen för mer info.');
+                }
+            });
+        }
+        
+        // Ansluter till en annan peer (agerar som klient)
+        function connectToPeer() {
+            const opponentId = opponentIdInput.value.trim();
+            if (!opponentId) {
+                alert("Du måste ange ett ID att ansluta till.");
+                return;
+            }
+            conn = peer.connect(opponentId);
+            playerSymbol = 'O'; // Klienten är alltid O
+            myTurn = false;
+            setupConnectionEvents();
+        }
+
+        function setupConnectionEvents() {
+            conn.on('open', () => {
+                console.log("Anslutning öppen!");
+                showGame();
+                updateStatus(myTurn ? `Din tur (Spelare ${playerSymbol})` : "Motståndarens tur...");
+                resetGame(); // Säkerställ att brädet är rent vid anslutning
+            });
+
+            conn.on('data', (data) => {
+                if (data.type === 'move') {
+                    handleOpponentMove(data.index);
+                } else if (data.type === 'reset') {
+                    resetGame();
+                }
+            });
+            
+            conn.on('close', () => {
+                alert("Motståndaren har kopplat från.");
+                location.reload(); // Ladda om sidan för att starta om
+            });
+        }
+        
+        function generateNewId() {
+            if (confirm("Är du säker på att du vill generera ett nytt ID? Detta kan inte ångras.")) {
+                 localStorage.removeItem('peer-id');
+                 peer.destroy();
+                 initializePeer();
+                 alert("Ett nytt ID har genererats.");
+            }
+        }
+
+        // ----- Spel-logik (i stort sett oförändrad)-----
+        
+        function handleCellClick(event) {
+            if (!myTurn || !gameActive) return;
+
+            const index = event.target.dataset.index;
+            if (boardState[index]) return;
+
+            makeMove(index, playerSymbol);
+            
+            conn.send({ type: 'move', index: index });
+
+            myTurn = false;
+            updateStatus("Motståndarens tur...");
+        }
+
+        function handleOpponentMove(index) {
+            const opponentSymbol = playerSymbol === 'X' ? 'O' : 'X';
+            makeMove(index, opponentSymbol);
+            myTurn = true;
+            if(gameActive) {
+                updateStatus(`Din tur (Spelare ${playerSymbol})`);
+            }
+        }
+
+        function makeMove(index, symbol) {
+            boardState[index] = symbol;
+            renderBoard();
+
+            const winner = checkWinner();
+            if (winner) {
+                endGame(winner);
+            }
+        }
+
+        function checkWinner() {
+            const winningCombinations = [
+                [0, 1, 2], [3, 4, 5], [6, 7, 8],
+                [0, 3, 6], [1, 4, 7], [2, 5, 8],
+                [0, 4, 8], [2, 4, 6]
+            ];
+            for (const combination of winningCombinations) {
+                const [a, b, c] = combination;
+                if (boardState[a] && boardState[a] === boardState[b] && boardState[a] === boardState[c]) {
+                    return boardState[a];
+                }
+            }
+            if (boardState.every(cell => cell !== null)) {
+                return 'draw';
+            }
+            return null;
+        }
+        
+        function endGame(winner) {
+            gameActive = false;
+            myTurn = false;
+            if (winner === 'draw') {
+                updateStatus("Oavgjort!");
+            } else {
+                updateStatus(`Spelare ${winner} vann!`);
+            }
+            disableBoard();
+        }
+
+        function sendReset() {
+            if (conn && conn.open) {
+                conn.send({ type: 'reset' });
+                resetGame();
+            }
+        }
+
+        function resetGame() {
+            boardState = Array(9).fill(null);
+            gameActive = true;
+            myTurn = (playerSymbol === 'X');
+            renderBoard();
+            enableBoard();
+            updateStatus(myTurn ? `Din tur (Spelare ${playerSymbol})` : "Motståndarens tur...");
+        }
+
+        // ----- UI-funktioner -----
+
+        function renderBoard() {
+            boardDiv.childNodes.forEach((cell, index) => {
+                cell.textContent = boardState[index];
+                if (boardState[index] === 'X') {
+                    cell.classList.add('text-cyan-400');
+                    cell.classList.remove('text-pink-400');
+                } else if (boardState[index] === 'O') {
+                    cell.classList.add('text-pink-400');
+                    cell.classList.remove('text-cyan-400');
+                } else {
+                    cell.classList.remove('text-cyan-400', 'text-pink-400');
+                }
+            });
+        }
+        
+        function updateStatus(message) {
+            statusDiv.textContent = message;
+        }
+
+        function showGame() {
+            connectionBox.classList.add('hidden');
+            gameContainer.classList.remove('hidden');
+        }
+
+        function disableBoard() {
+             boardDiv.childNodes.forEach(cell => cell.classList.add('disabled'));
+        }
+
+
+
+        function enableBoard() {
+            boardDiv.childNodes.forEach(cell => cell.classList.remove('disabled'));
+        }
+        
+        function copyIdToClipboard() {
+            if (!myPeerIdInput.value) {
+                alert("Vänta tills ett ID har genererats.");
+                return;
+            }
+            myPeerIdInput.select();
+            document.execCommand('copy');
+            alert("ID har kopierats!");
+        }
+
+        // Kör igång allt
+        init();
+    </script>
+</body>
+</html>
+
