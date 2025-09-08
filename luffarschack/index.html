@@ -5,8 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Luffarschack med WebRTC (Enkel)</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lade till ett ID för att kunna referera till skriptet -->
-    <script id="peerjs-script" src="https://unpkg.com/peerjs@1.5.2/dist/peer.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peer.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -78,280 +77,238 @@
     </div>
 
     <script>
-        // DOM Element
-        const connectBtn = document.getElementById('connect-btn');
-        const copyIdBtn = document.getElementById('copy-id-btn');
-        const newIdBtn = document.getElementById('new-id-btn');
-        const myPeerIdInput = document.getElementById('my-peer-id');
-        const opponentIdInput = document.getElementById('opponent-id');
-        const boardDiv = document.getElementById('board');
-        const statusDiv = document.getElementById('status');
-        const resetBtn = document.getElementById('reset-btn');
-        const connectionBox = document.getElementById('connection-box');
-        const gameContainer = document.getElementById('game-container');
-        const notificationDiv = document.getElementById('notification');
-        let notificationTimeout;
-
-
-        // PeerJS & Spelvariabler
-        let peer;
-        let conn;
-        let boardState = Array(9).fill(null);
-        let myTurn = false;
-        let playerSymbol = '';
-        let gameActive = true;
-
-        // ----- Initialisering -----
-        function init() {
-            initializePeer();
-
-            connectBtn.addEventListener('click', connectToPeer);
-            copyIdBtn.addEventListener('click', copyIdToClipboard);
-            newIdBtn.addEventListener('click', generateNewId);
-            resetBtn.addEventListener('click', sendReset);
-
-            // Skapa spelbrädet
-            for (let i = 0; i < 9; i++) {
-                const cell = document.createElement('div');
-                cell.classList.add('cell', 'bg-gray-800', 'border', 'border-gray-600', 'rounded-md', 'flex', 'items-center', 'justify-center', 'text-5xl', 'md:text-6xl', 'font-bold', 'cursor-pointer');
-                cell.dataset.index = i;
-                cell.addEventListener('click', handleCellClick);
-                boardDiv.appendChild(cell);
-            }
-        }
-
-        // ----- PeerJS-logik -----
-
-        function initializePeer() {
-            const savedId = localStorage.getItem('peer-id');
-            peer = new Peer(savedId, {
-                // Använd Googles publika STUN-servrar för bättre anslutningsmöjligheter
-                config: {
-                    'iceServers': [
-                      { urls: 'stun:stun.l.google.com:19302' },
-                      { urls: 'stun:stun1.l.google.com:19302' }
-                    ]
-                }
-            });
-
-            peer.on('open', (id) => {
-                console.log('My peer ID is: ' + id);
-                myPeerIdInput.value = id;
-                localStorage.setItem('peer-id', id);
-            });
-
-            peer.on('connection', (newConn) => {
-                conn = newConn;
-                playerSymbol = 'X';
-                myTurn = true;
-                setupConnectionEvents();
-            });
-            
-            peer.on('error', (err) => {
-                console.error("PeerJS Error:", err);
-                if (err.type === 'unavailable-id') {
-                    showNotification('Detta ID är upptaget. Ett nytt ID har genererats.');
-                    localStorage.removeItem('peer-id');
-                    peer.destroy();
-                    initializePeer();
-                } else {
-                     showNotification('Ett anslutningsfel uppstod. Se konsolen.');
-                }
-            });
-        }
-        
-        function connectToPeer() {
-            const opponentId = opponentIdInput.value.trim();
-            if (!opponentId) {
-                showNotification("Du måste ange ett motståndar-ID.");
+        document.addEventListener('DOMContentLoaded', () => {
+            // Kontrollera om PeerJS-biblioteket har laddats
+            if (typeof Peer === 'undefined') {
+                console.error("PeerJS kunde inte laddas. Appen kan inte starta.");
+                const notificationDiv = document.getElementById('notification');
+                notificationDiv.textContent = "Kritiskt fel: Kunde inte ladda PeerJS.";
+                notificationDiv.classList.remove('opacity-0', 'pointer-events-none');
                 return;
             }
-            conn = peer.connect(opponentId);
-            playerSymbol = 'O';
-            myTurn = false;
-            setupConnectionEvents();
-        }
+            
+            console.log("DOM och PeerJS är redo. Startar appen.");
+            
+            // DOM Element
+            const connectBtn = document.getElementById('connect-btn');
+            const copyIdBtn = document.getElementById('copy-id-btn');
+            const newIdBtn = document.getElementById('new-id-btn');
+            const myPeerIdInput = document.getElementById('my-peer-id');
+            const opponentIdInput = document.getElementById('opponent-id');
+            const boardDiv = document.getElementById('board');
+            const statusDiv = document.getElementById('status');
+            const resetBtn = document.getElementById('reset-btn');
+            const connectionBox = document.getElementById('connection-box');
+            const gameContainer = document.getElementById('game-container');
+            const notificationDiv = document.getElementById('notification');
+            let notificationTimeout;
 
-        function setupConnectionEvents() {
-            conn.on('open', () => {
-                console.log("Anslutning öppen!");
-                showGameScreen();
-                updateStatus(myTurn ? `Din tur (Spelare ${playerSymbol})` : "Motståndarens tur...");
-                resetGame();
-            });
+            // PeerJS & Spelvariabler
+            let peer;
+            let conn;
+            let boardState = Array(9).fill(null);
+            let myTurn = false;
+            let playerSymbol = '';
+            let gameActive = true;
 
-            conn.on('data', (data) => {
-                if (data.type === 'move') {
-                    handleOpponentMove(data.index);
-                } else if (data.type === 'reset') {
+            // ----- Initialisering -----
+            function init() {
+                initializePeer();
+                connectBtn.addEventListener('click', connectToPeer);
+                copyIdBtn.addEventListener('click', copyIdToClipboard);
+                newIdBtn.addEventListener('click', generateNewId);
+                resetBtn.addEventListener('click', sendReset);
+
+                for (let i = 0; i < 9; i++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell', 'bg-gray-800', 'border', 'border-gray-600', 'rounded-md', 'flex', 'items-center', 'justify-center', 'text-5xl', 'md:text-6xl', 'font-bold', 'cursor-pointer');
+                    cell.dataset.index = i;
+                    cell.addEventListener('click', handleCellClick);
+                    boardDiv.appendChild(cell);
+                }
+            }
+
+            // ----- PeerJS-logik -----
+            function initializePeer() {
+                const savedId = localStorage.getItem('peer-id');
+                peer = new Peer(savedId, {
+                    config: { 'iceServers': [ { urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' } ] }
+                });
+
+                peer.on('open', (id) => {
+                    console.log('My peer ID is: ' + id);
+                    myPeerIdInput.value = id;
+                    localStorage.setItem('peer-id', id);
+                });
+
+                peer.on('connection', (newConn) => {
+                    conn = newConn;
+                    playerSymbol = 'X';
+                    myTurn = true;
+                    setupConnectionEvents();
+                });
+                
+                peer.on('error', (err) => {
+                    console.error("PeerJS Error:", err);
+                    if (err.type === 'unavailable-id') {
+                        showNotification('Detta ID är upptaget. Ett nytt ID har genererats.');
+                        localStorage.removeItem('peer-id');
+                        peer.destroy();
+                        initializePeer();
+                    } else {
+                        showNotification('Ett anslutningsfel uppstod. Se konsolen.');
+                    }
+                });
+            }
+            
+            function connectToPeer() {
+                const opponentId = opponentIdInput.value.trim();
+                if (!opponentId) {
+                    showNotification("Du måste ange ett motståndar-ID.");
+                    return;
+                }
+                conn = peer.connect(opponentId);
+                playerSymbol = 'O';
+                myTurn = false;
+                setupConnectionEvents();
+            }
+
+            function setupConnectionEvents() {
+                conn.on('open', () => {
+                    console.log("Anslutning öppen!");
+                    showGameScreen();
+                    updateStatus(myTurn ? `Din tur (Spelare ${playerSymbol})` : "Motståndarens tur...");
+                    resetGame();
+                });
+
+                conn.on('data', (data) => {
+                    if (data.type === 'move') handleOpponentMove(data.index);
+                    else if (data.type === 'reset') resetGame();
+                });
+                
+                conn.on('close', () => {
+                    showNotification("Motståndaren har kopplat från.");
+                    showConnectionScreen();
+                });
+            }
+            
+            function generateNewId() {
+                localStorage.removeItem('peer-id');
+                peer.destroy();
+                initializePeer();
+                showNotification("Ett nytt ID har genererats.", true);
+            }
+
+            // ----- Spel-logik -----
+            function handleCellClick(event) {
+                if (!myTurn || !gameActive) return;
+                const index = event.target.dataset.index;
+                if (boardState[index]) return;
+
+                makeMove(index, playerSymbol);
+                conn.send({ type: 'move', index: index });
+                myTurn = false;
+                updateStatus("Motståndarens tur...");
+            }
+
+            function handleOpponentMove(index) {
+                const opponentSymbol = playerSymbol === 'X' ? 'O' : 'X';
+                makeMove(index, opponentSymbol);
+                myTurn = true;
+                if(gameActive) updateStatus(`Din tur (Spelare ${playerSymbol})`);
+            }
+
+            function makeMove(index, symbol) {
+                boardState[index] = symbol;
+                renderBoard();
+                const winner = checkWinner();
+                if (winner) endGame(winner);
+            }
+
+            function checkWinner() {
+                const winningCombinations = [ [0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6] ];
+                for (const combination of winningCombinations) {
+                    const [a, b, c] = combination;
+                    if (boardState[a] && boardState[a] === boardState[b] && boardState[a] === boardState[c]) return boardState[a];
+                }
+                if (boardState.every(cell => cell !== null)) return 'draw';
+                return null;
+            }
+            
+            function endGame(winner) {
+                gameActive = false;
+                myTurn = false;
+                updateStatus(winner === 'draw' ? "Oavgjort!" : `Spelare ${winner} vann!`);
+                disableBoard();
+            }
+
+            function sendReset() {
+                if (conn && conn.open) {
+                    conn.send({ type: 'reset' });
                     resetGame();
                 }
-            });
+            }
+
+            function resetGame() {
+                boardState = Array(9).fill(null);
+                gameActive = true;
+                myTurn = (playerSymbol === 'X');
+                renderBoard();
+                enableBoard();
+                updateStatus(myTurn ? `Din tur (Spelare ${playerSymbol})` : "Motståndarens tur...");
+            }
+
+            // ----- UI-funktioner -----
+            function showNotification(message, isSuccess = false) {
+                clearTimeout(notificationTimeout);
+                notificationDiv.textContent = message;
+                notificationDiv.classList.remove('bg-red-500', 'bg-green-500');
+                notificationDiv.classList.add(isSuccess ? 'bg-green-600' : 'bg-red-600');
+                notificationDiv.classList.remove('opacity-0', 'pointer-events-none');
+                notificationTimeout = setTimeout(() => {
+                    notificationDiv.classList.add('opacity-0', 'pointer-events-none');
+                }, 3000);
+            }
             
-            conn.on('close', () => {
-                showNotification("Motståndaren har kopplat från.");
-                showConnectionScreen();
-            });
-        }
-        
-        function generateNewId() {
-            localStorage.removeItem('peer-id');
-            peer.destroy();
-            initializePeer();
-            showNotification("Ett nytt ID har genererats.", true);
-        }
-
-        // ----- Spel-logik -----
-        
-        function handleCellClick(event) {
-            if (!myTurn || !gameActive) return;
-            const index = event.target.dataset.index;
-            if (boardState[index]) return;
-
-            makeMove(index, playerSymbol);
-            conn.send({ type: 'move', index: index });
-            myTurn = false;
-            updateStatus("Motståndarens tur...");
-        }
-
-        function handleOpponentMove(index) {
-            const opponentSymbol = playerSymbol === 'X' ? 'O' : 'X';
-            makeMove(index, opponentSymbol);
-            myTurn = true;
-            if(gameActive) {
-                updateStatus(`Din tur (Spelare ${playerSymbol})`);
-            }
-        }
-
-        function makeMove(index, symbol) {
-            boardState[index] = symbol;
-            renderBoard();
-
-            const winner = checkWinner();
-            if (winner) {
-                endGame(winner);
-            }
-        }
-
-        function checkWinner() {
-            const winningCombinations = [
-                [0, 1, 2], [3, 4, 5], [6, 7, 8],
-                [0, 3, 6], [1, 4, 7], [2, 5, 8],
-                [0, 4, 8], [2, 4, 6]
-            ];
-            for (const combination of winningCombinations) {
-                const [a, b, c] = combination;
-                if (boardState[a] && boardState[a] === boardState[b] && boardState[a] === boardState[c]) {
-                    return boardState[a];
-                }
-            }
-            if (boardState.every(cell => cell !== null)) return 'draw';
-            return null;
-        }
-        
-        function endGame(winner) {
-            gameActive = false;
-            myTurn = false;
-            updateStatus(winner === 'draw' ? "Oavgjort!" : `Spelare ${winner} vann!`);
-            disableBoard();
-        }
-
-        function sendReset() {
-            if (conn && conn.open) {
-                conn.send({ type: 'reset' });
-                resetGame();
-            }
-        }
-
-        function resetGame() {
-            boardState = Array(9).fill(null);
-            gameActive = true;
-            myTurn = (playerSymbol === 'X');
-            renderBoard();
-            enableBoard();
-            updateStatus(myTurn ? `Din tur (Spelare ${playerSymbol})` : "Motståndarens tur...");
-        }
-
-        // ----- UI-funktioner -----
-        
-        function showNotification(message, isSuccess = false) {
-            clearTimeout(notificationTimeout);
-            notificationDiv.textContent = message;
-            notificationDiv.classList.remove('bg-red-500', 'bg-green-500');
-            notificationDiv.classList.add(isSuccess ? 'bg-green-600' : 'bg-red-600');
-            notificationDiv.classList.remove('opacity-0', 'pointer-events-none');
-
-            notificationTimeout = setTimeout(() => {
-                notificationDiv.classList.add('opacity-0', 'pointer-events-none');
-            }, 3000);
-        }
-        
-        function renderBoard() {
-            boardDiv.childNodes.forEach((cell, index) => {
-                cell.textContent = boardState[index];
-                cell.classList.remove('text-cyan-400', 'text-pink-400');
-                if (boardState[index] === 'X') {
-                    cell.classList.add('text-cyan-400');
-                } else if (boardState[index] === 'O') {
-                    cell.classList.add('text-pink-400');
-                }
-            });
-        }
-        
-        function updateStatus(message) {
-            statusDiv.textContent = message;
-        }
-
-        function showGameScreen() {
-            connectionBox.classList.add('hidden');
-            gameContainer.classList.remove('hidden');
-        }
-
-        function showConnectionScreen() {
-            gameContainer.classList.add('hidden');
-            connectionBox.classList.remove('hidden');
-            opponentIdInput.value = '';
-        }
-
-        function disableBoard() {
-             boardDiv.childNodes.forEach(cell => cell.classList.add('disabled'));
-        }
-
-        function enableBoard() {
-            boardDiv.childNodes.forEach(cell => cell.classList.remove('disabled'));
-        }
-        
-        function copyIdToClipboard() {
-            if (!myPeerIdInput.value) {
-                showNotification("Vänta tills ett ID har genererats.");
-                return;
-            }
-            myPeerIdInput.select();
-            if (navigator.clipboard) {
-                navigator.clipboard.writeText(myPeerIdInput.value).then(() => {
-                    showNotification("ID kopierat!", true);
+            function renderBoard() {
+                boardDiv.childNodes.forEach((cell, index) => {
+                    cell.textContent = boardState[index];
+                    cell.classList.remove('text-cyan-400', 'text-pink-400');
+                    if (boardState[index] === 'X') cell.classList.add('text-cyan-400');
+                    else if (boardState[index] === 'O') cell.classList.add('text-pink-400');
                 });
-            } else {
-                document.execCommand('copy');
-                showNotification("ID kopierat!", true);
             }
-        }
+            
+            function updateStatus(message) { statusDiv.textContent = message; }
+            function showGameScreen() {
+                connectionBox.classList.add('hidden');
+                gameContainer.classList.remove('hidden');
+            }
+            function showConnectionScreen() {
+                gameContainer.classList.add('hidden');
+                connectionBox.classList.remove('hidden');
+                opponentIdInput.value = '';
+            }
+            function disableBoard() { boardDiv.childNodes.forEach(cell => cell.classList.add('disabled')); }
+            function enableBoard() { boardDiv.childNodes.forEach(cell => cell.classList.remove('disabled')); }
+            
+            function copyIdToClipboard() {
+                if (!myPeerIdInput.value) {
+                    showNotification("Vänta tills ett ID har genererats.");
+                    return;
+                }
+                myPeerIdInput.select();
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(myPeerIdInput.value).then(() => showNotification("ID kopierat!", true));
+                } else {
+                    document.execCommand('copy');
+                    showNotification("ID kopierat!", true);
+                }
+            }
 
-        // ----- Start av applikationen (Ny, robust metod) -----
-        const peerJsScript = document.getElementById('peerjs-script');
-
-        // Detta körs när skriptet har laddats ner och körts klart
-        peerJsScript.onload = () => {
-            console.log("PeerJS har laddats. Startar appen.");
+            // Kör igång allt
             init();
-        };
-
-        // Detta körs om skriptet INTE kunde laddas
-        peerJsScript.onerror = () => {
-            console.error("Kunde inte ladda PeerJS-biblioteket.");
-            showNotification("Kritiskt fel: Kunde inte ladda PeerJS. Kontrollera anslutning/annonsblockerare.");
-        };
-
+        });
     </script>
 </body>
 </html>
