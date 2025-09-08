@@ -297,8 +297,6 @@
              boardDiv.childNodes.forEach(cell => cell.classList.add('disabled'));
         }
 
-
-
         function enableBoard() {
             boardDiv.childNodes.forEach(cell => cell.classList.remove('disabled'));
         }
@@ -313,8 +311,10 @@
             alert("ID har kopierats!");
         }
 
-        // Kör igång allt
-        init();
+        // Kör igång allt när sidan har laddat klart
+        window.onload = () => {
+            init();
+        };
     </script>
 </body>
 </html>
