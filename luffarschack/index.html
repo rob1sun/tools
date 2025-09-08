@@ -3,313 +3,224 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Luffarschack med WebRTC (Enkel)</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peer.min.js"></script>
+    <title>WebRTC Chatt i en Fil</title>
     <style>
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
         }
-        .cell {
-            transition: background-color 0.2s ease-in-out;
+        #chat-container {
+            width: 80%;
+            max-width: 800px;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            height: 90vh;
         }
-        .cell:hover:not(.disabled) {
-            background-color: #374151; /* gray-700 */
+        #messages {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 20px;
+            border-bottom: 1px solid #ccc;
         }
-        .cell.disabled {
-            cursor: not-allowed;
+        #message-input {
+            display: flex;
+            padding: 10px;
         }
-        #connection-box, #game-container {
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+        #message-input input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
         }
-        #my-peer-id {
-            -webkit-user-select: all; /* iOS Safari */
-            -ms-user-select: all; /* IE 10+ */
-            user-select: all; /* Standard syntax */
+        #message-input button {
+            padding: 10px 20px;
+            margin-left: 10px;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
         }
-        #notification {
-            transition: opacity 0.3s ease-in-out;
+        #message-input button:disabled {
+            background-color: #ccc;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 15px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+        .sent {
+            background-color: #007bff;
+            color: white;
+            align-self: flex-end;
+            margin-left: auto;
+        }
+        .received {
+            background-color: #e9e9eb;
+            color: black;
+            align-self: flex-start;
+        }
+        #signaling-container {
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #ccc;
+        }
+        #signaling-container textarea {
+            width: 100%;
+            height: 80px;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+        }
+        .hidden {
+            display: none;
         }
     </style>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
 </head>
-<body class="bg-gray-900 text-white min-h-screen flex items-center justify-center p-4">
+<body>
 
-    <div class="w-full max-w-md mx-auto">
-        <h1 class="text-4xl font-bold text-center mb-6 text-cyan-400">Luffarschack</h1>
+<div id="chat-container">
+    <div id="signaling-container">
+        <h2>Anslutning</h2>
+        <button id="create-offer-btn">1. Skapa Erbjudande</button>
+        <p>Kopiera och skicka detta till den andra användaren:</p>
+        <textarea id="offer-sdp" readonly></textarea>
 
-        <!-- Anslutningssektion -->
-        <div id="connection-box" class="bg-gray-800 bg-opacity-70 p-6 rounded-lg shadow-xl mb-6 space-y-4">
-            <div>
-                <label for="my-peer-id" class="block text-sm font-medium mb-1">Ditt Spel-ID</label>
-                <div class="flex space-x-2">
-                    <input type="text" id="my-peer-id" class="w-full bg-gray-900 border border-gray-600 rounded-md p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" readonly placeholder="Hämtar ID...">
-                    <button id="copy-id-btn" class="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-2 px-4 rounded-md transition duration-200">Kopiera</button>
-                </div>
-                 <button id="new-id-btn" class="mt-2 w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-md transition duration-200 text-xs">Generera nytt ID</button>
-            </div>
-            
-            <hr class="border-gray-600">
-
-            <div>
-                <label for="opponent-id" class="block text-sm font-medium mb-1">Anslut till motståndare</label>
-                <input type="text" id="opponent-id" class="w-full bg-gray-900 border border-gray-600 rounded-md p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="Klistra in motståndarens ID här...">
-            </div>
-            <button id="connect-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition duration-200">Anslut</button>
-        </div>
-
-        <!-- Spelsektion -->
-        <div id="game-container" class="hidden bg-gray-800 bg-opacity-70 p-6 rounded-lg shadow-xl">
-            <div id="status" class="text-center text-lg font-medium mb-4 h-8">Väntar på anslutning...</div>
-            <div id="board" class="grid grid-cols-3 gap-3 mx-auto w-64 h-64 md:w-80 md:h-80">
-                <!-- Cellerna genereras av JavaScript -->
-            </div>
-            <button id="reset-btn" class="mt-6 w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md transition duration-200">Spela igen</button>
-        </div>
+        <p>Klistra in erbjudandet från den andra användaren här:</p>
+        <textarea id="remote-sdp"></textarea>
+        <button id="create-answer-btn">2. Skapa Svar</button>
+        <button id="add-answer-btn">3. Lägg till Svar</button>
     </div>
-
-    <!-- Notifikations-element -->
-    <div id="notification" class="fixed top-5 right-5 bg-red-500 text-white py-2 px-4 rounded-lg shadow-lg opacity-0 pointer-events-none">
-        This is a notification.
+    <div id="messages"></div>
+    <div id="message-input">
+        <input type="text" id="message-text" placeholder="Skriv ett meddelande..." disabled>
+        <button id="send-btn" disabled>Skicka</button>
     </div>
+</div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // Kontrollera om PeerJS-biblioteket har laddats
-            if (typeof Peer === 'undefined') {
-                console.error("PeerJS kunde inte laddas. Appen kan inte starta.");
-                const notificationDiv = document.getElementById('notification');
-                notificationDiv.textContent = "Kritiskt fel: Kunde inte ladda PeerJS.";
-                notificationDiv.classList.remove('opacity-0', 'pointer-events-none');
-                return;
-            }
-            
-            console.log("DOM och PeerJS är redo. Startar appen.");
-            
-            // DOM Element
-            const connectBtn = document.getElementById('connect-btn');
-            const copyIdBtn = document.getElementById('copy-id-btn');
-            const newIdBtn = document.getElementById('new-id-btn');
-            const myPeerIdInput = document.getElementById('my-peer-id');
-            const opponentIdInput = document.getElementById('opponent-id');
-            const boardDiv = document.getElementById('board');
-            const statusDiv = document.getElementById('status');
-            const resetBtn = document.getElementById('reset-btn');
-            const connectionBox = document.getElementById('connection-box');
-            const gameContainer = document.getElementById('game-container');
-            const notificationDiv = document.getElementById('notification');
-            let notificationTimeout;
+<script>
+    const createOfferBtn = document.getElementById('create-offer-btn');
+    const createAnswerBtn = document.getElementById('create-answer-btn');
+    const addAnswerBtn = document.getElementById('add-answer-btn');
+    const offerSdpTextarea = document.getElementById('offer-sdp');
+    const remoteSdpTextarea = document.getElementById('remote-sdp');
+    const messagesDiv = document.getElementById('messages');
+    const messageText = document.getElementById('message-text');
+    const sendBtn = document.getElementById('send-btn');
+    const signalingContainer = document.getElementById('signaling-container');
 
-            // PeerJS & Spelvariabler
-            let peer;
-            let conn;
-            let boardState = Array(9).fill(null);
-            let myTurn = false;
-            let playerSymbol = '';
-            let gameActive = true;
+    let peerConnection;
+    let dataChannel;
 
-            // ----- Initialisering -----
-            function init() {
-                initializePeer();
-                connectBtn.addEventListener('click', connectToPeer);
-                copyIdBtn.addEventListener('click', copyIdToClipboard);
-                newIdBtn.addEventListener('click', generateNewId);
-                resetBtn.addEventListener('click', sendReset);
+    const configuration = {
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' } // Använder Googles publika STUN-server
+        ]
+    };
 
-                for (let i = 0; i < 9; i++) {
-                    const cell = document.createElement('div');
-                    cell.classList.add('cell', 'bg-gray-800', 'border', 'border-gray-600', 'rounded-md', 'flex', 'items-center', 'justify-center', 'text-5xl', 'md:text-6xl', 'font-bold', 'cursor-pointer');
-                    cell.dataset.index = i;
-                    cell.addEventListener('click', handleCellClick);
-                    boardDiv.appendChild(cell);
-                }
-            }
+    function initializePeerConnection() {
+        peerConnection = new RTCPeerConnection(configuration);
 
-            // ----- PeerJS-logik -----
-            function initializePeer() {
-                const savedId = localStorage.getItem('peer-id');
-                peer = new Peer(savedId, {
-                    config: { 'iceServers': [ { urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' } ] }
-                });
+        peerConnection.onicecandidate = event => {
+            if (event.candidate) {
+                // I en automatiserad signalering skulle detta skickas till den andra parten.
+                // För manuell hantering kan vi vänta tills alla kandidater är samlade.
+                // För enkelhetens skull inkluderar vi dem i SDP.
+            }
+        };
+        
+        peerConnection.ondatachannel = event => {
+            dataChannel = event.channel;
+            setupDataChannel();
+        };
 
-                peer.on('open', (id) => {
-                    console.log('My peer ID is: ' + id);
-                    myPeerIdInput.value = id;
-                    localStorage.setItem('peer-id', id);
-                });
+        peerConnection.onconnectionstatechange = () => {
+            if (peerConnection.connectionState === 'connected') {
+                signalingContainer.classList.add('hidden');
+                messageText.disabled = false;
+                sendBtn.disabled = false;
+                displayMessage('Ansluten!', 'system');
+            }
+        };
+    }
 
-                peer.on('connection', (newConn) => {
-                    conn = newConn;
-                    playerSymbol = 'X';
-                    myTurn = true;
-                    setupConnectionEvents();
-                });
-                
-                peer.on('error', (err) => {
-                    console.error("PeerJS Error:", err);
-                    if (err.type === 'unavailable-id') {
-                        showNotification('Detta ID är upptaget. Ett nytt ID har genererats.');
-                        localStorage.removeItem('peer-id');
-                        peer.destroy();
-                        initializePeer();
-                    } else {
-                        showNotification('Ett anslutningsfel uppstod. Se konsolen.');
-                    }
-                });
-            }
-            
-            function connectToPeer() {
-                const opponentId = opponentIdInput.value.trim();
-                if (!opponentId) {
-                    showNotification("Du måste ange ett motståndar-ID.");
-                    return;
-                }
-                conn = peer.connect(opponentId);
-                playerSymbol = 'O';
-                myTurn = false;
-                setupConnectionEvents();
-            }
+    function setupDataChannel() {
+        dataChannel.onopen = () => {
+            console.log("Datakanal öppen");
+        };
 
-            function setupConnectionEvents() {
-                conn.on('open', () => {
-                    console.log("Anslutning öppen!");
-                    showGameScreen();
-                    updateStatus(myTurn ? `Din tur (Spelare ${playerSymbol})` : "Motståndarens tur...");
-                    resetGame();
-                });
+        dataChannel.onmessage = event => {
+            displayMessage(event.data, 'received');
+        };
+    }
+    
+    function displayMessage(message, type) {
+        const messageElement = document.createElement('div');
+        messageElement.classList.add('message', type);
+        messageElement.textContent = message;
+        messagesDiv.appendChild(messageElement);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
 
-                conn.on('data', (data) => {
-                    if (data.type === 'move') handleOpponentMove(data.index);
-                    else if (data.type === 'reset') resetGame();
-                });
-                
-                conn.on('close', () => {
-                    showNotification("Motståndaren har kopplat från.");
-                    showConnectionScreen();
-                });
-            }
-            
-            function generateNewId() {
-                localStorage.removeItem('peer-id');
-                peer.destroy();
-                initializePeer();
-                showNotification("Ett nytt ID har genererats.", true);
-            }
+    createOfferBtn.onclick = async () => {
+        initializePeerConnection();
+        dataChannel = peerConnection.createDataChannel("chat");
+        setupDataChannel();
 
-            // ----- Spel-logik -----
-            function handleCellClick(event) {
-                if (!myTurn || !gameActive) return;
-                const index = event.target.dataset.index;
-                if (boardState[index]) return;
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        
+        // Vänta på att ICE-kandidater ska samlas in
+        peerConnection.onicegatheringstatechange = () => {
+            if (peerConnection.iceGatheringState === 'complete') {
+                offerSdpTextarea.value = JSON.stringify(peerConnection.localDescription);
+            }
+        };
+    };
 
-                makeMove(index, playerSymbol);
-                conn.send({ type: 'move', index: index });
-                myTurn = false;
-                updateStatus("Motståndarens tur...");
-            }
+    createAnswerBtn.onclick = async () => {
+        initializePeerConnection();
+        const offer = JSON.parse(remoteSdpTextarea.value);
+        await peerConnection.setRemoteDescription(offer);
 
-            function handleOpponentMove(index) {
-                const opponentSymbol = playerSymbol === 'X' ? 'O' : 'X';
-                makeMove(index, opponentSymbol);
-                myTurn = true;
-                if(gameActive) updateStatus(`Din tur (Spelare ${playerSymbol})`);
-            }
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
 
-            function makeMove(index, symbol) {
-                boardState[index] = symbol;
-                renderBoard();
-                const winner = checkWinner();
-                if (winner) endGame(winner);
+        peerConnection.onicegatheringstatechange = () => {
+            if (peerConnection.iceGatheringState === 'complete') {
+                offerSdpTextarea.value = JSON.stringify(peerConnection.localDescription);
             }
+        };
+    };
 
-            function checkWinner() {
-                const winningCombinations = [ [0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6] ];
-                for (const combination of winningCombinations) {
-                    const [a, b, c] = combination;
-                    if (boardState[a] && boardState[a] === boardState[b] && boardState[a] === boardState[c]) return boardState[a];
-                }
-                if (boardState.every(cell => cell !== null)) return 'draw';
-                return null;
-            }
-            
-            function endGame(winner) {
-                gameActive = false;
-                myTurn = false;
-                updateStatus(winner === 'draw' ? "Oavgjort!" : `Spelare ${winner} vann!`);
-                disableBoard();
-            }
+    addAnswerBtn.onclick = async () => {
+        const answer = JSON.parse(remoteSdpTextarea.value);
+        await peerConnection.setRemoteDescription(answer);
+    };
 
-            function sendReset() {
-                if (conn && conn.open) {
-                    conn.send({ type: 'reset' });
-                    resetGame();
-                }
-            }
+    sendBtn.onclick = () => {
+        const message = messageText.value;
+        if (message) {
+            dataChannel.send(message);
+            displayMessage(message, 'sent');
+            messageText.value = '';
+        }
+    };
+    
+    messageText.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            sendBtn.click();
+        }
+    });
 
-            function resetGame() {
-                boardState = Array(9).fill(null);
-                gameActive = true;
-                myTurn = (playerSymbol === 'X');
-                renderBoard();
-                enableBoard();
-                updateStatus(myTurn ? `Din tur (Spelare ${playerSymbol})` : "Motståndarens tur...");
-            }
-
-            // ----- UI-funktioner -----
-            function showNotification(message, isSuccess = false) {
-                clearTimeout(notificationTimeout);
-                notificationDiv.textContent = message;
-                notificationDiv.classList.remove('bg-red-500', 'bg-green-500');
-                notificationDiv.classList.add(isSuccess ? 'bg-green-600' : 'bg-red-600');
-                notificationDiv.classList.remove('opacity-0', 'pointer-events-none');
-                notificationTimeout = setTimeout(() => {
-                    notificationDiv.classList.add('opacity-0', 'pointer-events-none');
-                }, 3000);
-            }
-            
-            function renderBoard() {
-                boardDiv.childNodes.forEach((cell, index) => {
-                    cell.textContent = boardState[index];
-                    cell.classList.remove('text-cyan-400', 'text-pink-400');
-                    if (boardState[index] === 'X') cell.classList.add('text-cyan-400');
-                    else if (boardState[index] === 'O') cell.classList.add('text-pink-400');
-                });
-            }
-            
-            function updateStatus(message) { statusDiv.textContent = message; }
-            function showGameScreen() {
-                connectionBox.classList.add('hidden');
-                gameContainer.classList.remove('hidden');
-            }
-            function showConnectionScreen() {
-                gameContainer.classList.add('hidden');
-                connectionBox.classList.remove('hidden');
-                opponentIdInput.value = '';
-            }
-            function disableBoard() { boardDiv.childNodes.forEach(cell => cell.classList.add('disabled')); }
-            function enableBoard() { boardDiv.childNodes.forEach(cell => cell.classList.remove('disabled')); }
-            
-            function copyIdToClipboard() {
-                if (!myPeerIdInput.value) {
-                    showNotification("Vänta tills ett ID har genererats.");
-                    return;
-                }
-                myPeerIdInput.select();
-                if (navigator.clipboard) {
-                    navigator.clipboard.writeText(myPeerIdInput.value).then(() => showNotification("ID kopierat!", true));
-                } else {
-                    document.execCommand('copy');
-                    showNotification("ID kopierat!", true);
-                }
-            }
-
-            // Kör igång allt
-            init();
-        });
-    </script>
+</script>
 </body>
 </html>
-
