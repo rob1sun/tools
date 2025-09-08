@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<title>Nyckelgenerator</title>
+<style>
+  body {font-family: Arial, sans-serif; max-width: 600px; margin: 2rem auto; line-height: 1.5;}
+  h1 {text-align: center;}
+  button {padding: .6rem 1.2rem; font-size: 1rem; cursor: pointer;}
+  #status {margin-top: 1rem; color: #006400;}
+  #error  {margin-top: 1rem; color: #B22222;}
+</style>
+</head>
+<body>
+
+<h1>Generera RSA‑nyckelpar</h1>
+<p>Klicka på knappen nedan så skapas ett 2048‑bit RSA‑nyckelpar i din webbläsare. Du kan sedan ladda ner de två nycklarna som PEM‑filer.</p>
+
+<button id="genBtn">Generera nycklar</button>
+
+<div id="status"></div>
+<div id="error"></div>
+
+<script>
+// Hjälpfunktion – konvertera ArrayBuffer → Base64
+function arrayBufferToBase64(buf) {
+    const binary = String.fromCharCode(...new Uint8Array(buf));
+    return btoa(binary);
+}
+
+// Skapa PEM‑formatet
+function formatPem(base64Key, label) {
+    const lineLength = 64;
+    const lines = [];
+    for (let i = 0; i < base64Key.length; i += lineLength) {
+        lines.push(base64Key.slice(i, i + lineLength));
+    }
+    return `-----BEGIN ${label}-----\n${lines.join('\n')}\n-----END ${label}-----`;
+}
+
+// Ladda ner en fil från en textsträng
+function download(text, filename) {
+    const blob = new Blob([text], {type: 'application/octet-stream'});
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// Huvudfunktion – generera nycklar med Web Crypto API
+async function generateKeys() {
+    const statusEl = document.getElementById('status');
+    const errorEl  = document.getElementById('error');
+    statusEl.textContent = '';
+    errorEl.textContent  = '';
+
+    try {
+        statusEl.textContent = 'Skapar nycklar…';
+
+        // Generera ett RSA‑2048‑nyckelpar för signering/kryptering
+        const keyPair = await window.crypto.subtle.generateKey(
+            {
+                name: "RSA-OAEP",
+                modulusLength: 2048,
+                publicExponent: new Uint8Array([1, 0, 1]), // 0x10001
+                hash: {name: "SHA-256"}
+            },
+            true,               // exportable
+            ["encrypt", "decrypt"]
+        );
+
+        // Exportera nycklarna i PKCS#8 (privat) respektive SPKI (publik) DER‑format
+        const privDer = await window.crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
+        const pubDer  = await window.crypto.subtle.exportKey("spki",  keyPair.publicKey);
+
+        // Konvertera till Base64 och sedan PEM
+        const privPem = formatPem(arrayBufferToBase64(privDer), "PRIVATE KEY");
+        const pubPem  = formatPem(arrayBufferToBase64(pubDer),  "PUBLIC KEY");
+
+        // Ladda ner filerna
+        download(privPem, "private_key.pem");
+        download(pubPem,  "public_key.pem");
+
+        statusEl.textContent = 'Nycklar har genererats och laddats ner.';
+    } catch (e) {
+        console.error(e);
+        errorEl.textContent = 'Ett fel uppstod: ' + e.message;
+    }
+}
+
+// Bind knapptrycket
+document.getElementById('genBtn').addEventListener('click', generateKeys);
+</script>
+
+</body>
+</html>
