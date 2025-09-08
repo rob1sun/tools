@@ -7,7 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peer.min.js"></script>
     <style>
-        /* Anpassad stil för en trevligare spelkänsla */
         body {
             font-family: 'Inter', sans-serif;
         }
@@ -28,6 +27,9 @@
             -webkit-user-select: all; /* iOS Safari */
             -ms-user-select: all; /* IE 10+ */
             user-select: all; /* Standard syntax */
+        }
+        #notification {
+            transition: opacity 0.3s ease-in-out;
         }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -69,6 +71,11 @@
         </div>
     </div>
 
+    <!-- Notifikations-element -->
+    <div id="notification" class="fixed top-5 right-5 bg-red-500 text-white py-2 px-4 rounded-lg shadow-lg opacity-0 pointer-events-none">
+        This is a notification.
+    </div>
+
     <script>
         // DOM Element
         const connectBtn = document.getElementById('connect-btn');
@@ -81,6 +88,9 @@
         const resetBtn = document.getElementById('reset-btn');
         const connectionBox = document.getElementById('connection-box');
         const gameContainer = document.getElementById('game-container');
+        const notificationDiv = document.getElementById('notification');
+        let notificationTimeout;
+
 
         // PeerJS & Spelvariabler
         let peer;
@@ -112,9 +122,16 @@
         // ----- PeerJS-logik -----
 
         function initializePeer() {
-            // Försök hämta sparat ID, annars genererar PeerJS ett nytt
             const savedId = localStorage.getItem('peer-id');
-            peer = new Peer(savedId);
+            peer = new Peer(savedId, {
+                // Använd Googles publika STUN-servrar för bättre anslutningsmöjligheter
+                config: {
+                    'iceServers': [
+                      { urls: 'stun:stun.l.google.com:19302' },
+                      { urls: 'stun:stun1.l.google.com:19302' }
+                    ]
+                }
+            });
 
             peer.on('open', (id) => {
                 console.log('My peer ID is: ' + id);
@@ -122,10 +139,9 @@
                 localStorage.setItem('peer-id', id);
             });
 
-            // Lyssnar efter inkommande anslutningar (agerar som värd)
             peer.on('connection', (newConn) => {
                 conn = newConn;
-                playerSymbol = 'X'; // Värden är alltid X
+                playerSymbol = 'X';
                 myTurn = true;
                 setupConnectionEvents();
             });
@@ -133,25 +149,24 @@
             peer.on('error', (err) => {
                 console.error("PeerJS Error:", err);
                 if (err.type === 'unavailable-id') {
-                    alert('Detta ID är upptaget. Ett nytt ID har genererats.');
-                    localStorage.removeItem('peer-id'); // Ta bort det ogiltiga ID:t
-                    peer.destroy(); // Förstör den gamla peer-instansen
-                    initializePeer(); // Försök igen utan ett sparat ID
+                    showNotification('Detta ID är upptaget. Ett nytt ID har genererats.');
+                    localStorage.removeItem('peer-id');
+                    peer.destroy();
+                    initializePeer();
                 } else {
-                     alert('Ett anslutningsfel uppstod. Kontrollera konsolen för mer info.');
+                     showNotification('Ett anslutningsfel uppstod. Se konsolen.');
                 }
             });
         }
         
-        // Ansluter till en annan peer (agerar som klient)
         function connectToPeer() {
             const opponentId = opponentIdInput.value.trim();
             if (!opponentId) {
-                alert("Du måste ange ett ID att ansluta till.");
+                showNotification("Du måste ange ett motståndar-ID.");
                 return;
             }
             conn = peer.connect(opponentId);
-            playerSymbol = 'O'; // Klienten är alltid O
+            playerSymbol = 'O';
             myTurn = false;
             setupConnectionEvents();
         }
@@ -159,9 +174,9 @@
         function setupConnectionEvents() {
             conn.on('open', () => {
                 console.log("Anslutning öppen!");
-                showGame();
+                showGameScreen();
                 updateStatus(myTurn ? `Din tur (Spelare ${playerSymbol})` : "Motståndarens tur...");
-                resetGame(); // Säkerställ att brädet är rent vid anslutning
+                resetGame();
             });
 
             conn.on('data', (data) => {
@@ -173,32 +188,27 @@
             });
             
             conn.on('close', () => {
-                alert("Motståndaren har kopplat från.");
-                location.reload(); // Ladda om sidan för att starta om
+                showNotification("Motståndaren har kopplat från.");
+                showConnectionScreen();
             });
         }
         
         function generateNewId() {
-            if (confirm("Är du säker på att du vill generera ett nytt ID? Detta kan inte ångras.")) {
-                 localStorage.removeItem('peer-id');
-                 peer.destroy();
-                 initializePeer();
-                 alert("Ett nytt ID har genererats.");
-            }
+            localStorage.removeItem('peer-id');
+            peer.destroy();
+            initializePeer();
+            showNotification("Ett nytt ID har genererats.", true);
         }
 
-        // ----- Spel-logik (i stort sett oförändrad)-----
+        // ----- Spel-logik -----
         
         function handleCellClick(event) {
             if (!myTurn || !gameActive) return;
-
             const index = event.target.dataset.index;
             if (boardState[index]) return;
 
             makeMove(index, playerSymbol);
-            
             conn.send({ type: 'move', index: index });
-
             myTurn = false;
             updateStatus("Motståndarens tur...");
         }
@@ -234,20 +244,14 @@
                     return boardState[a];
                 }
             }
-            if (boardState.every(cell => cell !== null)) {
-                return 'draw';
-            }
+            if (boardState.every(cell => cell !== null)) return 'draw';
             return null;
         }
         
         function endGame(winner) {
             gameActive = false;
             myTurn = false;
-            if (winner === 'draw') {
-                updateStatus("Oavgjort!");
-            } else {
-                updateStatus(`Spelare ${winner} vann!`);
-            }
+            updateStatus(winner === 'draw' ? "Oavgjort!" : `Spelare ${winner} vann!`);
             disableBoard();
         }
 
@@ -268,18 +272,27 @@
         }
 
         // ----- UI-funktioner -----
+        
+        function showNotification(message, isSuccess = false) {
+            clearTimeout(notificationTimeout);
+            notificationDiv.textContent = message;
+            notificationDiv.classList.remove('bg-red-500', 'bg-green-500');
+            notificationDiv.classList.add(isSuccess ? 'bg-green-600' : 'bg-red-600');
+            notificationDiv.classList.remove('opacity-0', 'pointer-events-none');
 
+            notificationTimeout = setTimeout(() => {
+                notificationDiv.classList.add('opacity-0', 'pointer-events-none');
+            }, 3000);
+        }
+        
         function renderBoard() {
             boardDiv.childNodes.forEach((cell, index) => {
                 cell.textContent = boardState[index];
+                cell.classList.remove('text-cyan-400', 'text-pink-400');
                 if (boardState[index] === 'X') {
                     cell.classList.add('text-cyan-400');
-                    cell.classList.remove('text-pink-400');
                 } else if (boardState[index] === 'O') {
                     cell.classList.add('text-pink-400');
-                    cell.classList.remove('text-cyan-400');
-                } else {
-                    cell.classList.remove('text-cyan-400', 'text-pink-400');
                 }
             });
         }
@@ -288,9 +301,15 @@
             statusDiv.textContent = message;
         }
 
-        function showGame() {
+        function showGameScreen() {
             connectionBox.classList.add('hidden');
             gameContainer.classList.remove('hidden');
+        }
+
+        function showConnectionScreen() {
+            gameContainer.classList.add('hidden');
+            connectionBox.classList.remove('hidden');
+            opponentIdInput.value = '';
         }
 
         function disableBoard() {
@@ -303,18 +322,35 @@
         
         function copyIdToClipboard() {
             if (!myPeerIdInput.value) {
-                alert("Vänta tills ett ID har genererats.");
+                showNotification("Vänta tills ett ID har genererats.");
                 return;
             }
             myPeerIdInput.select();
-            document.execCommand('copy');
-            alert("ID har kopierats!");
+            // Använder det nya Clipboard API om det är tillgängligt, annars fallback
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(myPeerIdInput.value).then(() => {
+                    showNotification("ID kopierat!", true);
+                });
+            } else {
+                document.execCommand('copy');
+                showNotification("ID kopierat!", true);
+            }
         }
 
-        // Kör igång allt när sidan har laddat klart
-        window.onload = () => {
-            init();
-        };
+        // ----- Start av applikationen -----
+        function waitForPeerJS() {
+            if (typeof Peer !== 'undefined') {
+                console.log("PeerJS har laddats. Startar appen.");
+                init();
+            } else {
+                console.log("Väntar på att PeerJS ska laddas...");
+                setTimeout(waitForPeerJS, 100);
+            }
+        }
+
+        // Kör igång allt
+        waitForPeerJS();
+
     </script>
 </body>
 </html>
