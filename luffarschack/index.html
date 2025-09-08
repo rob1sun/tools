@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Luffarschack med WebRTC (Enkel)</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peer.min.js"></script>
+    <!-- Lade till ett ID för att kunna referera till skriptet -->
+    <script id="peerjs-script" src="https://unpkg.com/peerjs@1.5.2/dist/peer.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -326,7 +327,6 @@
                 return;
             }
             myPeerIdInput.select();
-            // Använder det nya Clipboard API om det är tillgängligt, annars fallback
             if (navigator.clipboard) {
                 navigator.clipboard.writeText(myPeerIdInput.value).then(() => {
                     showNotification("ID kopierat!", true);
@@ -337,19 +337,20 @@
             }
         }
 
-        // ----- Start av applikationen -----
-        function waitForPeerJS() {
-            if (typeof Peer !== 'undefined') {
-                console.log("PeerJS har laddats. Startar appen.");
-                init();
-            } else {
-                console.log("Väntar på att PeerJS ska laddas...");
-                setTimeout(waitForPeerJS, 100);
-            }
-        }
+        // ----- Start av applikationen (Ny, robust metod) -----
+        const peerJsScript = document.getElementById('peerjs-script');
 
-        // Kör igång allt
-        waitForPeerJS();
+        // Detta körs när skriptet har laddats ner och körts klart
+        peerJsScript.onload = () => {
+            console.log("PeerJS har laddats. Startar appen.");
+            init();
+        };
+
+        // Detta körs om skriptet INTE kunde laddas
+        peerJsScript.onerror = () => {
+            console.error("Kunde inte ladda PeerJS-biblioteket.");
+            showNotification("Kritiskt fel: Kunde inte ladda PeerJS. Kontrollera anslutning/annonsblockerare.");
+        };
 
     </script>
 </body>
