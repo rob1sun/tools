@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Skolfederation – Metadatafilter</title>
+  <style>
+    :root{
+      --bg:#0b0f14;--panel:#0f1621;--muted:#93a1b1;--text:#e6edf3;--accent:#8fd3ff;--chip:#1b2736;--ok:#59d499;--warn:#ffcc66;
+      --br:14px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font:14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial; background:var(--bg); color:var(--text)}
+    header{position:sticky; top:0; z-index:10; background:linear-gradient(180deg, rgba(11,15,20,.95), rgba(11,15,20,.75)); backdrop-filter: blur(8px);}
+    .wrap{max-width:1100px; margin:0 auto; padding:18px}
+    h1{font-size:20px; margin:0 0 8px 0}
+    .row{display:flex; gap:12px; flex-wrap:wrap; align-items:center}
+    .card{background:var(--panel); border-radius:var(--br); padding:14px}
+    .filters{display:flex; gap:10px; flex-wrap:wrap}
+    .group{background:var(--panel); border-radius:var(--br); padding:10px 12px; display:flex; gap:12px; align-items:center}
+    .group h3{margin:0 8px 0 0; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted)}
+    label.chk{display:inline-flex; align-items:center; gap:6px; background:var(--chip); padding:6px 10px; border-radius:999px; cursor:pointer; user-select:none}
+    label.chk input{accent-color:var(--accent)}
+    .actions{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+    button{background:var(--accent); color:#07263a; border:0; padding:10px 14px; border-radius:10px; font-weight:600; cursor:pointer}
+    button.secondary{background:#213146; color:var(--text)}
+    button:disabled{opacity:.6; cursor:not-allowed}
+    .muted{color:var(--muted)}
+    .list{margin-top:14px}
+    table{width:100%; border-collapse:separate; border-spacing:0 8px}
+    thead th{font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); text-align:left; padding:4px 10px}
+    tbody tr{background:var(--panel);}
+    tbody tr td{padding:10px}
+    tbody tr td:first-child{border-top-left-radius:12px; border-bottom-left-radius:12px}
+    tbody tr td:last-child{border-top-right-radius:12px; border-bottom-right-radius:12px}
+    .tags{display:flex; gap:6px; flex-wrap:wrap}
+    .tag{background:var(--chip); color:var(--text); padding:4px 8px; border-radius:999px; font-size:12px}
+    .type.idp{color:var(--ok)}
+    .type.sp{color:var(--warn)}
+    .pill{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; background:var(--chip)}
+    .count{font-weight:600}
+    .search{min-width:220px; flex:1}
+    input[type="text"], select{background:#0c121b; color:var(--text); border:1px solid #1e2a3b; padding:9px 10px; border-radius:10px; width:100%}
+    .foot{margin-top:16px; color:var(--muted); font-size:12px}
+    .sr-only{position:absolute; left:-10000px; width:1px; height:1px; top:auto; overflow:hidden}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap row">
+      <div>
+        <h1>Skolfederation – metadatafilter</h1>
+        <div class="muted">Lägg <code>skolfederation-3_1.xml</code> och <code>entities.json</code> i undermappen <code>./data/</code>.
+        </div>
+      </div>
+    </div>
+    <div class="wrap">
+      <div class="row">
+        <div class="group">
+          <h3>Typ</h3>
+          <label class="chk"><input type="checkbox" id="f-idp" checked>IdP</label>
+          <label class="chk"><input type="checkbox" id="f-sp" checked>SP</label>
+        </div>
+        <div class="group">
+          <h3>Taggar</h3>
+          <label class="chk"><input type="checkbox" data-tag="skolfederation" checked>skolfederation</label>
+          <label class="chk"><input type="checkbox" data-tag="sambi" checked>sambi</label>
+          <label class="chk"><input type="checkbox" data-tag="komfetti" checked>komfetti</label>
+        </div>
+        <div class="group search" style="flex:1 1 280px">
+          <input type="text" id="q" placeholder="Sök på namn eller entityID…" aria-label="Sök" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div class="actions">
+          <button id="selectVisible">Markera synliga</button>
+          <button id="clearSelection" class="secondary">Rensa markering</button>
+          <button id="generate" disabled>Skapa ny XML från valda</button>
+          <span class="pill"><span class="count" id="selCount">0</span> valda</span>
+          <span class="pill"><span class="count" id="visCount">0</span> visade</span>
+          <span class="muted" id="status"></span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="list">
+      <table aria-label="Lista över entiteter">
+        <thead>
+          <tr>
+            <th><span class="sr-only">Välj</span></th>
+            <th>Organisation</th>
+            <th>Typ</th>
+            <th>Taggar</th>
+            <th>entityID</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div class="foot" id="footerHint">Tips: Filtrera på typ och taggar, markera sedan och klicka “Skapa ny XML”.</div>
+    </div>
+  </main>
+
+  <script>
+  // === Konfiguration: placera filer i ./data/ relativt denna HTML ===
+  const JSON_URL = './data/entities.json';
+  const XML_URL  = './data/skolfederation-3_1.xml';
+
+  // === App-state ===
+  let ENTITIES = []; // array av { entityId, organizationDisplayName, type, tags }
+  let FILTER = { idp: true, sp: true, tags: new Set(['skolfederation','sambi','komfetti']), q: '' };
+  const SELECTED = new Set(); // entityIds
+  let xmlText = ''; // original XML
+  let xmlDoc = null; // parsed DOM
+
+  // === Hjälp ===
+  function el(tag, attrs={}, ...children){
+    const e = document.createElement(tag);
+    for (const [k,v] of Object.entries(attrs)){
+      if (k === 'class') e.className = v; else if(k === 'html') e.innerHTML = v; else if(k.startsWith('on') && typeof v === 'function') e.addEventListener(k.slice(2), v); else if (v !== undefined) e.setAttribute(k, v);
+    }
+    for (const c of children){
+      if (c == null) continue;
+      e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+    }
+    return e;
+  }
+
+  const $tbody = document.getElementById('tbody');
+  const $selCount = document.getElementById('selCount');
+  const $visCount = document.getElementById('visCount');
+  const $status = document.getElementById('status');
+  const $generate = document.getElementById('generate');
+
+  function matchesFilters(ent){
+    const isIdp = ent.type.includes('idp');
+    const isSp  = ent.type.includes('sp');
+    if ((isIdp && !FILTER.idp) && (isSp && !FILTER.sp)) return false; // both present but both off
+    if (!isIdp && !isSp) return false; // unknown
+    if (isIdp && !FILTER.idp && !isSp) return false;
+    if (isSp && !FILTER.sp && !isIdp) return false;
+
+    // tag filter: show if any of the entity tags is currently enabled
+    const enabledTags = FILTER.tags;
+    if (enabledTags.size){
+      const ok = ent.tags.some(t => enabledTags.has(t));
+      if (!ok) return false;
+    }
+
+    // text query
+    if (FILTER.q){
+      const q = FILTER.q.toLowerCase();
+      const s = `${ent.organizationDisplayName} ${ent.entityId}`.toLowerCase();
+      if (!s.includes(q)) return false;
+    }
+    return true;
+  }
+
+  function render(){
+    $tbody.innerHTML = '';
+    let visible = 0;
+    for (const ent of ENTITIES){
+      if (!matchesFilters(ent)) continue;
+      visible++;
+      const row = el('tr', {},
+        el('td', {}, el('input', {type:'checkbox', 'aria-label': `Välj ${ent.organizationDisplayName}`, checked: SELECTED.has(ent.entityId), onchange: (ev)=>{ ev.target.checked ? SELECTED.add(ent.entityId) : SELECTED.delete(ent.entityId); updateCounts(); }})),
+        el('td', {},
+          el('div', {style:'font-weight:600'}, ent.organizationDisplayName || ent.entityId),
+          el('div', {class:'muted', style:'font-size:12px;'}, ent.entityId)
+        ),
+        el('td', {}, (function(){
+          const types = [];
+          if (ent.type.includes('idp')) types.push(el('span', {class:'type idp'}, 'IdP'));
+          if (ent.type.includes('sp')) types.push(el('span', {class:'type sp'}, 'SP'));
+          return el('div', {}, ...types);
+        })()),
+        el('td', {}, el('div', {class:'tags'}, ...ent.tags.map(t => el('span', {class:'tag'}, t)))),
+        el('td', {}, ent.entityId)
+      );
+      $tbody.appendChild(row);
+    }
+    $visCount.textContent = visible;
+    updateCounts();
+  }
+
+  function updateCounts(){
+    $selCount.textContent = SELECTED.size;
+    $generate.disabled = SELECTED.size === 0;
+  }
+
+  // === Händelser på filter ===
+  document.getElementById('f-idp').addEventListener('change', (e)=>{ FILTER.idp = e.target.checked; render(); });
+  document.getElementById('f-sp').addEventListener('change', (e)=>{ FILTER.sp = e.target.checked; render(); });
+  for (const cb of document.querySelectorAll('input[type="checkbox"][data-tag]')){
+    cb.addEventListener('change', (e)=>{
+      const tag = e.target.getAttribute('data-tag');
+      if (e.target.checked) FILTER.tags.add(tag); else FILTER.tags.delete(tag);
+      render();
+    });
+  }
+  document.getElementById('q').addEventListener('input', (e)=>{ FILTER.q = e.target.value.trim(); render(); });
+
+  document.getElementById('selectVisible').addEventListener('click', ()=>{
+    let added = 0;
+    for (const ent of ENTITIES){
+      if (matchesFilters(ent) && !SELECTED.has(ent.entityId)){ SELECTED.add(ent.entityId); added++; }
+    }
+    if (added) updateCounts();
+    render();
+  });
+  document.getElementById('clearSelection').addEventListener('click', ()=>{ SELECTED.clear(); render(); });
+
+  // === Ladda data ===
+  async function load(){
+    try{
+      const [jsonRes, xmlRes] = await Promise.all([
+        fetch(JSON_URL),
+        fetch(XML_URL)
+      ]);
+      if (!jsonRes.ok) throw new Error(`Kunde inte läsa ${JSON_URL}`);
+      if (!xmlRes.ok) throw new Error(`Kunde inte läsa ${XML_URL}`);
+      const data = await jsonRes.json();
+      ENTITIES = Object.values(data).sort((a,b)=> (a.organizationDisplayName||'').localeCompare(b.organizationDisplayName||''));
+      xmlText = await xmlRes.text();
+      const parser = new DOMParser();
+      xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+      const perr = xmlDoc.querySelector('parsererror');
+      if (perr) throw new Error('Kunde inte tolka XML-filen.');
+      document.getElementById('status').textContent = `${ENTITIES.length} entiteter lästa.`;
+      render();
+    }catch(err){
+      console.error(err);
+      document.getElementById('status').textContent = err.message;
+    }
+  }
+
+  // === Generera filtrerad XML för valda ===
+  function generateXML(){
+    if (!xmlDoc){ alert('XML inte laddad ännu.'); return; }
+    if (SELECTED.size === 0){ alert('Välj minst en entitet.'); return; }
+
+    // Klona originaldokumentet för att inte mutera i minnet
+    const d = xmlDoc.cloneNode(true);
+
+    // Filtrera bort EntityDescriptor som inte är valda
+    // *|EntityDescriptor matchar lokalt namn med valfri namespace
+    const nodes = Array.from(d.querySelectorAll('*|EntityDescriptor'));
+    let removed = 0;
+    for (const n of nodes){
+      const id = n.getAttribute('entityID');
+      if (!SELECTED.has(id)){
+        n.parentNode.removeChild(n);
+        removed++;
+      }
+    }
+
+    // Sätt ett kommentarhuvud med tidsstämpel
+    const stamp = new Date().toISOString();
+    d.insertBefore(d.createComment(`Filtrerad ${stamp}, kvar: ${nodes.length - removed} av ${nodes.length}`), d.firstChild);
+
+    const out = new XMLSerializer().serializeToString(d);
+    const blob = new Blob([out], {type:'application/xml'});
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `filtered-metadata-${new Date().toISOString().replace(/[:.]/g,'')}.xml`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 0);
+  }
+
+  document.getElementById('generate').addEventListener('click', generateXML);
+
+  // Kickoff
+  load();
+  </script>
+</body>
+</html>
