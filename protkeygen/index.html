@@ -6,7 +6,9 @@
 <style>
   body {font-family: Arial, sans-serif; max-width: 600px; margin: 2rem auto; line-height: 1.5;}
   h1 {text-align: center;}
-  button {padding: .6rem 1.2rem; font-size: 1rem; cursor: pointer;}
+  .options {margin: 1.5rem 0;}
+  label {font-weight: bold; margin-right: .5rem;}
+  select, button {padding: .6rem 1.2rem; font-size: 1rem; cursor: pointer;}
   #status {margin-top: 1rem; color: #006400;}
   #error  {margin-top: 1rem; color: #B22222;}
 </style>
@@ -14,7 +16,15 @@
 <body>
 
 <h1>Generera RSA‑nyckelpar</h1>
-<p>Klicka på knappen nedan så skapas ett 2048‑bit RSA‑nyckelpar i din webbläsare. Du kan sedan ladda ner de två nycklarna som PEM‑filer.</p>
+<p>Välj önskad nyckelstorlek och klicka på knappen nedan. Ett RSA‑nyckelpar skapas då i din webbläsare och du kan ladda ner de två nycklarna som PEM‑filer.</p>
+
+<div class="options">
+  <label for="keySize">Nyckelstorlek:</label>
+  <select id="keySize">
+    <option value="2048" selected>2048 bitar</option>
+    <option value="4096">4096 bitar</option>
+  </select>
+</div>
 
 <button id="genBtn">Generera nycklar</button>
 
@@ -57,15 +67,19 @@ async function generateKeys() {
     errorEl.textContent  = '';
 
     try {
-        statusEl.textContent = 'Skapar nycklar…';
+        // Hämta vald nyckelstorlek från dropdown-menyn
+        const keySizeSelect = document.getElementById('keySize');
+        const modulusLength = parseInt(keySizeSelect.value, 10);
 
-        // Generera ett RSA‑2048‑nyckelpar för signering/kryptering
+        statusEl.textContent = `Skapar ${modulusLength}‑bitars nycklar…`;
+
+        // Generera ett RSA‑nyckelpar för kryptering
         const keyPair = await window.crypto.subtle.generateKey(
             {
                 name: "RSA-OAEP",
-                modulusLength: 2048,
+                modulusLength: modulusLength, // Använd den valda storleken
                 publicExponent: new Uint8Array([1, 0, 1]), // 0x10001
-                hash: {name: "SHA-256"}
+                hash: "SHA-256"
             },
             true,               // exportable
             ["encrypt", "decrypt"]
@@ -80,10 +94,10 @@ async function generateKeys() {
         const pubPem  = formatPem(arrayBufferToBase64(pubDer),  "PUBLIC KEY");
 
         // Ladda ner filerna
-        download(privPem, "private_key.pem");
-        download(pubPem,  "public_key.pem");
+        download(privPem, `private_key_${modulusLength}.pem`);
+        download(pubPem,  `public_key_${modulusLength}.pem`);
 
-        statusEl.textContent = 'Nycklar har genererats och laddats ner.';
+        statusEl.textContent = `${modulusLength}‑bitars nycklar har genererats och laddats ner.`;
     } catch (e) {
         console.error(e);
         errorEl.textContent = 'Ett fel uppstod: ' + e.message;
