@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sinusvåg Generator</title>
+    <!-- Ladda Tailwind CSS för styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Lite extra stil för att markera vald knapp */
+        .wave-button.active, .toggle-button.active {
+            background-color: #38b2ac; /* teal-500 */
+            border-color: #38b2ac; /* teal-500 */
+            color: white;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        /* Logaritmisk slider - anpassad CSS för att få reglaget att kännas mer naturligt */
+        input[type=range].log-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        /* Webkit (Chrome, Safari, Edge) */
+        input[type=range].log-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #4fd1c5; /* teal-400 */
+            cursor: pointer;
+            margin-top: -8px; /* Centrera tummen mot spåret */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        input[type=range].log-slider::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #4a5568; /* gray-600 */
+            border-radius: 2px;
+        }
+        /* Firefox */
+        input[type=range].log-slider::-moz-range-thumb {
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #4fd1c5; /* teal-400 */
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        input[type=range].log-slider::-moz-range-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #4a5568; /* gray-600 */
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body class="bg-gray-800 text-gray-200 min-h-screen flex items-center justify-center font-sans p-4">
+
+    <!-- Behållare som blir bredare på stora skärmar -->
+    <div class="bg-gray-700 p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-md lg:max-w-4xl">
+        <h1 class="text-3xl font-bold mb-6 text-center text-teal-300">Tone Generator</h1>
+
+        <!-- Flex-container för responsiv layout -->
+        <div class="flex flex-col lg:flex-row lg:space-x-8">
+
+            <!-- Vänster kolumn: Kontroller -->
+            <div class="flex-1">
+                <!-- Spela/Stopp-knapp -->
+                <div class="mb-6">
+                    <button id="toggleButton" class="w-full text-lg font-bold py-3 px-4 rounded-lg transition duration-200 shadow-lg bg-teal-500 hover:bg-teal-400 text-white">
+                        Starta Ljud
+                    </button>
+                </div>
+
+                <!-- Frekvens-reglage -->
+                <div class="mb-6">
+                    <label for="frequencySlider" class="block mb-2 font-medium text-lg">Frekvens</label>
+                    <input type="range" id="frequencySlider" min="0" max="1000" value="440" class="log-slider w-full h-2 bg-gray-600 rounded-lg cursor-pointer">
+                    <div id="frequencyValue" class="text-center text-xl font-mono mt-2 p-2 bg-gray-800 rounded-lg text-teal-300">440 Hz</div>
+                </div>
+
+                <!-- Volym-reglage -->
+                <div class="mb-6">
+                    <label for="volumeSlider" class="block mb-2 font-medium text-lg">Volym</label>
+                    <input type="range" id="volumeSlider" min="0" max="100" value="75" class="w-full h-2 bg-gray-600 rounded-lg cursor-pointer accent-teal-400">
+                </div>
+
+                <!-- Vågforms-väljare -->
+                <div>
+                    <label class="block mb-3 font-medium text-lg">Vågform</label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <button class="wave-button border-2 border-gray-600 py-2 rounded-lg transition duration-150 hover:border-teal-400 active" data-wave="sine">
+                            Sinus
+                        </button>
+                        <button class="wave-button border-2 border-gray-600 py-2 rounded-lg transition duration-150 hover:border-teal-400" data-wave="square">
+                            Fyrkant
+                        </button>
+                        <button class="wave-button border-2 border-gray-600 py-2 rounded-lg transition duration-150 hover:border-teal-400" data-wave="sawtooth">
+                            Sågtand
+                        </button>
+                        <button class="wave-button border-2 border-gray-600 py-2 rounded-lg transition duration-150 hover:border-teal-400" data-wave="triangle">
+                            Triangel
+                        </button>
+                    </div>
+                </div>
+
+                <!-- FFT-storlek (Upplösning) -->
+                <div class="mt-6">
+                    <label for="fftSizeSelect" class="block mb-2 font-medium text-lg">Upplösning (FFT)</label>
+                    <select id="fftSizeSelect" class="w-full p-2 bg-gray-800 rounded-lg border border-gray-600 text-teal-300 focus:outline-none focus:ring-2 focus:ring-teal-400">
+                        <option value="512">Låg (512)</option>
+                        <option value="1024">Medium (1024)</option>
+                        <option value="2048" selected>Hög (2048)</option>
+                        <option value="4096">Mycket Hög (4096)</option>
+                        <option value="8192">Ultra (8192)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Höger kolumn: Visualiseringar -->
+            <div class="flex-1 mt-8 lg:mt-0">
+                <!-- Spektrumanalysator -->
+                <div class="mt-0"> 
+                    <div class="flex justify-between items-center mb-3">
+                        <label class="block font-medium text-lg">Spektrumanalysator</label>
+                        <button id="analyserScaleToggle" class="toggle-button text-xs border-2 border-gray-600 py-1 px-2 rounded-lg transition duration-150 hover:border-teal-400" data-scale="log">
+                            Skala: Log
+                        </button>
+                    </div>
+                    <canvas id="analyserCanvas" class="w-full h-32 bg-gray-900 rounded-lg border border-gray-600"></canvas>
+                    <!-- Frekvensskala -->
+                    <div id="freqScaleLabels" class="flex justify-between text-xs text-gray-400 mt-1 px-1">
+                        <span id="fLabel1">0 Hz</span>
+                        <span id="fLabel2">5 kHz</span>
+                        <span id="fLabel3">10 kHz</span>
+                        <span id="fLabel4">15 kHz</span>
+                        <span id="freqScaleEnd">20 kHz+</span>
+                    </div>
+                </div>
+
+                <!-- Oscilloskop -->
+                <div class="mt-8">
+                     <div class="flex justify-between items-center mb-3">
+                        <label class="block font-medium text-lg">Oscilloskop</label>
+                        <button id="oscTriggerToggle" class="toggle-button text-xs border-2 border-gray-600 py-1 px-2 rounded-lg transition duration-150 hover:border-teal-400" data-triggered="false">
+                            Trigger: Av
+                        </button>
+                    </div>
+                    <canvas id="oscCanvas" class="w-full h-32 bg-gray-900 rounded-lg border border-gray-600"></canvas>
+                    <!-- Tidsskala -->
+                    <div class="flex justify-between text-xs text-gray-400 mt-1 px-1">
+                        <span>0 ms</span>
+                        <span id="timeScaleEnd">-- ms</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const toggleButton = document.getElementById('toggleButton');
+        const frequencySlider = document.getElementById('frequencySlider');
+        const frequencyValue = document.getElementById('frequencyValue');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const waveButtons = document.querySelectorAll('.wave-button');
+        const fftSizeSelect = document.getElementById('fftSizeSelect');
+        
+        // Canvas-element
+        const canvas = document.getElementById('analyserCanvas');
+        let canvasCtx = canvas.getContext('2d');
+        const oscCanvas = document.getElementById('oscCanvas');
+        let oscCanvasCtx = oscCanvas.getContext('2d');
+
+        // Skal-etiketter och knappar
+        const freqScaleEnd = document.getElementById('freqScaleEnd');
+        const freqScaleLabels = document.getElementById('freqScaleLabels');
+        // Hämta de nya ID:na för etiketterna
+        const fLabel1 = document.getElementById('fLabel1');
+        const fLabel2 = document.getElementById('fLabel2');
+        const fLabel3 = document.getElementById('fLabel3');
+        const fLabel4 = document.getElementById('fLabel4');
+        const timeScaleEnd = document.getElementById('timeScaleEnd');
+        const analyserScaleToggle = document.getElementById('analyserScaleToggle');
+    const oscTriggerToggle = document.getElementById('oscTriggerToggle');
+
+    // Web Audio API-variabler
+    let audioContext;
+    let oscillator;
+    let gainNode;
+    let analyser;
+    let dataArray; // För frekvens
+    let timeDataArray; // För vågform (oscilloskop)
+
+    let isPlaying = false;
+    let currentWaveform = 'sine';
+    let isAnalyserLog = true; // Starta med logaritmisk skala
+    let isOscTriggered = false; // Starta med trigger av
+
+    // Konstanter för logaritmisk slider
+    const minFreq = 20; 
+    const maxFreq = 20000; 
+    const minLog = Math.log(minFreq);
+    const maxLog = Math.log(maxFreq);
+    const logScale = (maxLog - minLog) / 1000; // 1000 är sliderns max-värde
+
+    // --- Frekvensslider-funktioner ---
+    function sliderToFrequency(sliderValue) {
+        const freq = Math.exp(minLog + logScale * sliderValue);
+        return Math.round(freq);
+    }
+    
+    function frequencyToSlider(frequency) {
+        const sliderValue = (Math.log(frequency) - minLog) / logScale;
+        return Math.round(sliderValue);
+    }
+
+    /**
+     * Hjälpfunktion för att uppdatera tidsskalan på oscilloskopet
+     */
+    function updateTimeScaleLabel() {
+        if (!audioContext || !analyser) return;
+        const timeWindowMs = (analyser.fftSize / audioContext.sampleRate) * 1000;
+        timeScaleEnd.textContent = `${timeWindowMs.toFixed(1)} ms`;
+    }
+
+    // Sätt startpositionen för slidern till 440 Hz
+    frequencySlider.value = frequencyToSlider(440);
+    frequencyValue.textContent = '440 Hz';
+
+
+    // Initiera AudioContext
+    function initAudio() {
+        if (audioContext) return; 
+
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        oscillator = audioContext.createOscillator();
+        oscillator.type = currentWaveform;
+        oscillator.frequency.setValueAtTime(sliderToFrequency(frequencySlider.value), audioContext.currentTime);
+        
+        gainNode = audioContext.createGain();
+        gainNode.gain.setValueAtTime(volumeSlider.value / 100, audioContext.currentTime);
+
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = parseInt(fftSizeSelect.value, 10); // Läs från dropdown
+        const bufferLength = analyser.frequencyBinCount; // 1024
+        dataArray = new Uint8Array(bufferLength); 
+        timeDataArray = new Uint8Array(analyser.fftSize);
+
+        // Sätt canvas-upplösningen
+        canvas.width = canvas.clientWidth;
+        canvas.height = canvas.clientHeight;
+        canvasCtx = canvas.getContext('2d'); 
+
+        oscCanvas.width = oscCanvas.clientWidth;
+        oscCanvas.height = oscCanvas.clientHeight;
+            oscCanvasCtx = oscCanvas.getContext('2d');
+
+            // Uppdatera skal-etiketter
+            const nyquist = audioContext.sampleRate / 2;
+            updateTimeScaleLabel(); // Använd hjälpfunktionen
+
+            // Sätt initiala etiketter (vi börjar i Log-läge)
+            fLabel1.textContent = '20 Hz';
+            fLabel2.textContent = '100 Hz';
+            fLabel3.textContent = '1 kHz';
+            fLabel4.textContent = '10 kHz';
+            freqScaleEnd.textContent = `${(nyquist / 1000).toFixed(1)} kHz`;
+
+            // Koppla ihop noderna: Oscillator -> Gain -> ANALYSER -> Högtalare
+            oscillator.connect(gainNode);
+            gainNode.connect(analyser);
+            analyser.connect(audioContext.destination); 
+
+            oscillator.start();
+            audioContext.suspend(); // Pausa direkt
+            drawVisualizations(); // Starta visualiseringsloopen
+        }
+
+        // --- Event Listeners ---
+        
+        // Huvudknapp för att växla ljud på/av
+        toggleButton.addEventListener('click', () => {
+            if (!audioContext) {
+                initAudio();
+            }
+            if (isPlaying) {
+                audioContext.suspend(); 
+                toggleButton.textContent = 'Starta Ljud';
+                toggleButton.classList.remove('bg-red-500', 'hover:bg-red-400');
+                toggleButton.classList.add('bg-teal-500', 'hover:bg-teal-400');
+            } else {
+                audioContext.resume(); 
+                toggleButton.textContent = 'Stoppa Ljud';
+                toggleButton.classList.remove('bg-teal-500', 'hover:bg-teal-400');
+                toggleButton.classList.add('bg-red-500', 'hover:bg-red-400');
+            }
+            isPlaying = !isPlaying;
+        });
+
+        // Frekvensreglaget
+        frequencySlider.addEventListener('input', () => {
+            const freq = sliderToFrequency(frequencySlider.value);
+            frequencyValue.textContent = `${freq} Hz`;
+            if (oscillator) {
+                oscillator.frequency.setTargetAtTime(freq, audioContext.currentTime, 0.01);
+            }
+        });
+
+        // Volymreglaget
+        volumeSlider.addEventListener('input', () => {
+            if (gainNode) {
+                gainNode.gain.setTargetAtTime(volumeSlider.value / 100, audioContext.currentTime, 0.01);
+            }
+        });
+
+        // Vågforms-knappar
+        waveButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                waveButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                currentWaveform = button.dataset.wave;
+                if (oscillator) {
+                    oscillator.type = currentWaveform;
+                }
+            });
+        });
+
+        // Toggle-knapp för analysatorskala
+        analyserScaleToggle.addEventListener('click', () => {
+            isAnalyserLog = !isAnalyserLog;
+            const nyquist = audioContext ? audioContext.sampleRate / 2 : 22050; // Fallback
+            
+            if (isAnalyserLog) {
+                analyserScaleToggle.textContent = 'Skala: Log';
+                analyserScaleToggle.classList.add('active');
+                // Byt till Log-etiketter
+                fLabel1.textContent = '20 Hz';
+                fLabel2.textContent = '100 Hz';
+                fLabel3.textContent = '1 kHz';
+                fLabel4.textContent = '10 kHz';
+                freqScaleEnd.textContent = `${(nyquist / 1000).toFixed(1)} kHz`;
+            } else {
+                analyserScaleToggle.textContent = 'Skala: Lin';
+                analyserScaleToggle.classList.remove('active');
+                // Byt till Lin-etiketter
+                fLabel1.textContent = '0 Hz';
+                fLabel2.textContent = '5 kHz';
+                fLabel3.textContent = '10 kHz';
+                fLabel4.textContent = '15 kHz';
+                freqScaleEnd.textContent = `${(nyquist / 1000).toFixed(1)} kHz`;
+            }
+        });
+
+        // Toggle-knapp för oscilloskop-trigger
+        oscTriggerToggle.addEventListener('click', () => {
+            isOscTriggered = !isOscTriggered;
+            if (isOscTriggered) {
+                oscTriggerToggle.textContent = 'Trigger: På';
+                oscTriggerToggle.classList.add('active');
+            } else {
+                oscTriggerToggle.textContent = 'Trigger: Av';
+                oscTriggerToggle.classList.remove('active');
+            }
+        });
+
+        // FFT-storlek (Upplösning)
+        fftSizeSelect.addEventListener('change', () => {
+            if (!analyser) return; // Gör inget om ljudet inte startat
+
+            const newFftSize = parseInt(fftSizeSelect.value, 10);
+            analyser.fftSize = newFftSize;
+
+            // VIKTIGT: Skapa om arrayerna med den nya storleken
+            dataArray = new Uint8Array(analyser.frequencyBinCount);
+            timeDataArray = new Uint8Array(analyser.fftSize); // Denna är fftSize
+
+            // Uppdatera oscilloskopets tidsskala
+            updateTimeScaleLabel();
+        });
+
+        /**
+         * Ritar båda visualiseringarna i en loop
+         */
+        function drawVisualizations() {
+            requestAnimationFrame(drawVisualizations);
+            if (!analyser) return;
+
+            // --- 1. RITA SPEKTRUMANALYSATOR ---
+            drawSpectrum();
+
+            // --- 2. RITA OSCILLOSKOPET ---
+            drawOscilloscope();
+        }
+
+        /**
+         * Ritar spektrumanalysatorn
+         */
+        function drawSpectrum() {
+            const bufferLength = analyser.frequencyBinCount; // 1024
+            analyser.getByteFrequencyData(dataArray);
+
+            canvasCtx.fillStyle = '#1a202c'; // bg-gray-900
+            canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+            canvasCtx.fillStyle = '#4fd1c5'; // teal-400
+
+            if (isAnalyserLog) {
+                // Logaritmisk ritning
+                const minLogFreq = Math.log10(minFreq); // Log av 20 Hz
+                const maxLogFreq = Math.log10(audioContext.sampleRate / 2); // Log av Nyquist
+                const logRange = maxLogFreq - minLogFreq;
+
+                // Hur många Hz per "bin"
+                const binWidthHz = (audioContext.sampleRate / 2) / bufferLength;
+                
+                let lastX = 0;
+                for (let i = 1; i < bufferLength; i++) {
+                    const freq = i * binWidthHz;
+                    if (freq < minFreq) continue; // Hoppa över allt under 20 Hz
+                    
+                    const logFreq = Math.log10(freq);
+                    // Normalisera log-frekvensen till 0-1
+                    const xNorm = (logFreq - minLogFreq) / logRange;
+                    // Skala till canvas-bredd
+                    const x = xNorm * canvas.width;
+                    
+                    const barHeight = (dataArray[i] / 255) * canvas.height;
+                    // Rita rektangel från förra x till nuvarande x
+                    canvasCtx.fillRect(lastX, canvas.height - barHeight, x - lastX + 1, barHeight);
+                    lastX = x;
+                }
+
+            } else {
+                // Linjär ritning (som tidigare)
+                const barWidth = (canvas.width / bufferLength);
+                let x = 0;
+                for (let i = 0; i < bufferLength; i++) {
+                    const barHeight = (dataArray[i] / 255) * canvas.height;
+                    canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+                    x += barWidth;
+                }
+            }
+        }
+        
+        /**
+         * Hittar en stabil trigger-punkt för oscilloskopet
+         */
+        function findTriggerPoint(data) {
+            // Leta efter en stigande "zero-crossing" (från < 128 till >= 128)
+            // Vi börjar en bit in i bufferten för att undvika konstigheter
+            const searchLength = data.length / 2; // Leta i första halvan
+            for (let i = 1; i < searchLength; i++) {
+                if (data[i - 1] < 128 && data[i] >= 128) {
+                    return i; // Hittade en trigger-punkt
+                }
+            }
+            return 0; // Hittade ingen, starta från början
+        }
+
+        /**
+         * Ritar oscilloskopet
+         */
+        function drawOscilloscope() {
+            const bufferLength = analyser.fftSize; // 2048
+            analyser.getByteTimeDomainData(timeDataArray);
+
+            oscCanvasCtx.fillStyle = '#1a202c'; // bg-gray-900
+            oscCanvasCtx.fillRect(0, 0, oscCanvas.width, oscCanvas.height);
+            oscCanvasCtx.lineWidth = 2;
+            oscCanvasCtx.strokeStyle = '#4fd1c5'; // teal-400
+            oscCanvasCtx.beginPath();
+
+            const sliceWidth = oscCanvas.width * 1.0 / (bufferLength / 2); // Rita bara halva bufferten för att zooma in
+            let xOsc = 0;
+            
+            // Hitta startindex
+            let startIndex = 0;
+            if (isOscTriggered) {
+                // Hitta en stabil startpunkt
+                startIndex = findTriggerPoint(timeDataArray);
+            }
+            
+            // Rita bara halva bufferten (1024 punkter), från startindex
+            const drawLength = bufferLength / 2;
+
+            for (let i = 0; i < drawLength; i++) {
+                // Hämta datapunkt, se till att index "loopar" runt
+                const dataIndex = (startIndex + i) % bufferLength;
+                const v = timeDataArray[dataIndex] / 128.0; // Normalisera (0.0 - 2.0)
+                const y = v * oscCanvas.height / 2; // Skala (0 - canvas.height)
+
+                if (i === 0) {
+                    oscCanvasCtx.moveTo(xOsc, y);
+                } else {
+                    oscCanvasCtx.lineTo(xOsc, y);
+                }
+                xOsc += sliceWidth;
+            }
+
+            oscCanvasCtx.lineTo(oscCanvas.width, oscCanvas.height / 2);
+            oscCanvasCtx.stroke();
+        }
+
+        // Se till att canvas ändrar storlek om fönstret gör det
+        window.addEventListener('resize', () => {
+            if (canvasCtx) {
+                canvas.width = canvas.clientWidth;
+                canvas.height = canvas.clientHeight;
+            }
+            if (oscCanvasCtx) {
+                oscCanvas.width = oscCanvas.clientWidth;
+                oscCanvas.height = oscCanvas.clientHeight;
+            }
+        });
+    </script>
+</body>
+</html>
