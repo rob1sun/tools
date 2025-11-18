@@ -1,97 +1,120 @@
 <!DOCTYPE html>
-<html lang="sv">
+<html lang="sv" class="h-full bg-gray-900 text-white">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sinusvåg Generator</title>
-    <!-- Ladda Tailwind CSS för styling -->
+    <title>Ljudgenerator</title>
+    <!-- Ladda Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Lite extra stil för att markera vald knapp */
-        .wave-button.active, .toggle-button.active {
-            background-color: #38b2ac; /* teal-500 */
-            border-color: #38b2ac; /* teal-500 */
+        /* Anpassad stil för att matcha Inter-fonten */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Safira-stilar för Webkit (Chrome, Safari) */
+        @supports (-webkit-appearance: none) {
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            }
+        }
+
+        /* Anpassad stil för reglagen */
+        input[type="range"].range-lg::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px; /* Bredd på tummen */
+            height: 20px; /* Höjd på tummen */
+            background: #2dd4bf; /* Teal färg */
+            cursor: pointer;
+            border-radius: 50%;
+            margin-top: -6px; /* Centrera tummen mot spåret */
+        }
+
+        input[type="range"].range-lg::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #2dd4bf;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        
+        /* Inaktiverade reglage */
+        input[type="range"]:disabled::-webkit-slider-thumb {
+             background: #4b5563; /* Gray-600 */
+        }
+        input[type="range"]:disabled::-moz-range-thumb {
+            background: #4b5563; /* Gray-600 */
+        }
+        input[type="range"]:disabled + span {
+            color: #6b7280; /* Gray-500 */
+        }
+
+        /* Aktiva knappar */
+        button.active {
+            background-color: #0d9488; /* Mörkare teal */
+            border-color: #2dd4bf;
             color: white;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
-        /* Logaritmisk slider - anpassad CSS för att få reglaget att kännas mer naturligt */
-        input[type=range].log-slider {
-            -webkit-appearance: none;
-            width: 100%;
-            background: transparent;
+        
+        .wave-button[data-wave].active {
+             background-color: #0d9488; /* Mörkare teal */
+             border-color: #2dd4bf;
+             color: white;
         }
-        /* Webkit (Chrome, Safari, Edge) */
-        input[type=range].log-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            height: 20px;
-            width: 20px;
-            border-radius: 50%;
-            background: #4fd1c5; /* teal-400 */
-            cursor: pointer;
-            margin-top: -8px; /* Centrera tummen mot spåret */
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
-        input[type=range].log-slider::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 4px;
-            cursor: pointer;
-            background: #4a5568; /* gray-600 */
-            border-radius: 2px;
-        }
-        /* Firefox */
-        input[type=range].log-slider::-moz-range-thumb {
-            height: 20px;
-            width: 20px;
-            border-radius: 50%;
-            background: #4fd1c5; /* teal-400 */
-            cursor: pointer;
-            border: none;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
-        input[type=range].log-slider::-moz-range-track {
-            width: 100%;
-            height: 4px;
-            cursor: pointer;
-            background: #4a5568; /* gray-600 */
-            border-radius: 2px;
+
+        /* Styling för canvas */
+        canvas {
+            background-color: #1f2937; /* Gray-800 */
+            border: 1px solid #4b5563; /* Gray-600 */
+            border-radius: 0.5rem; /* rounded-lg */
         }
     </style>
 </head>
-<body class="bg-gray-800 text-gray-200 min-h-screen flex items-center justify-center font-sans p-4">
+<body class="min-h-screen flex justify-center p-4 bg-gray-900 font-sans">
 
-    <!-- Behållare som blir bredare på stora skärmar -->
-    <div class="bg-gray-700 p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-md lg:max-w-4xl">
-        <h1 class="text-3xl font-bold mb-6 text-center text-teal-300">Tone Generator</h1>
+    <!-- Behållare som ändrar storlek beroende på skärm -->
+    <div class="w-full max-w-md lg:max-w-4xl bg-gray-800 shadow-2xl rounded-xl p-6 lg:p-8">
+        
+        <!-- Titel -->
+        <header class="mb-6">
+            <h1 class="text-3xl font-bold text-center text-teal-300">Ljudgenerator</h1>
+        </header>
 
-        <!-- Flex-container för responsiv layout -->
+        <!-- Flex-container för layout (kolumn på små skärmar, rad på stora) -->
         <div class="flex flex-col lg:flex-row lg:space-x-8">
 
             <!-- Vänster kolumn: Kontroller -->
-            <div class="flex-1">
-                <!-- Spela/Stopp-knapp -->
+            <div class="flex-shrink-0 lg:w-1/2">
+                <!-- Start/Stopp-knapp -->
                 <div class="mb-6">
-                    <button id="toggleButton" class="w-full text-lg font-bold py-3 px-4 rounded-lg transition duration-200 shadow-lg bg-teal-500 hover:bg-teal-400 text-white">
+                    <button id="toggleButton" class="w-full py-3 text-lg font-bold bg-teal-600 rounded-lg hover:bg-teal-500 transition duration-150 shadow-md">
                         Starta Ljud
                     </button>
                 </div>
 
                 <!-- Frekvens-reglage -->
-                <div class="mb-6">
-                    <label for="frequencySlider" class="block mb-2 font-medium text-lg">Frekvens</label>
-                    <input type="range" id="frequencySlider" min="0" max="1000" value="440" class="log-slider w-full h-2 bg-gray-600 rounded-lg cursor-pointer">
-                    <div id="frequencyValue" class="text-center text-xl font-mono mt-2 p-2 bg-gray-800 rounded-lg text-teal-300">440 Hz</div>
+                <div id="frequencyContainer" class="mb-6">
+                    <div class="flex justify-between items-end mb-1">
+                        <label for="frequencySlider" class="block font-medium text-lg">Frekvens</label>
+                        <span id="frequencyValue" class="text-lg font-mono text-teal-300">440 Hz</span>
+                    </div>
+                    <input id="frequencySlider" type="range" min="0" max="1000" value="535" class="w-full h-3 bg-gray-700 rounded-lg appearance-none cursor-pointer range-lg">
                 </div>
 
                 <!-- Volym-reglage -->
                 <div class="mb-6">
-                    <label for="volumeSlider" class="block mb-2 font-medium text-lg">Volym</label>
-                    <input type="range" id="volumeSlider" min="0" max="100" value="75" class="w-full h-2 bg-gray-600 rounded-lg cursor-pointer accent-teal-400">
+                    <div class="flex justify-between items-end mb-1">
+                        <label for="volumeSlider" class="block font-medium text-lg">Volym</label>
+                        <span id="volumeValue" class="text-lg font-mono text-teal-300">50 %</span>
+                    </div>
+                    <input id="volumeSlider" type="range" min="0" max="100" value="50" class="w-full h-3 bg-gray-700 rounded-lg appearance-none cursor-pointer range-lg">
                 </div>
-
-                <!-- Vågforms-väljare -->
+                
+                <!-- Ljudtyps-väljare -->
                 <div>
-                    <label class="block mb-3 font-medium text-lg">Vågform</label>
-                    <div class="grid grid-cols-2 gap-4">
+                    <label class="block mb-2 font-medium text-lg">Ljudtyp</label>
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-2">
                         <button class="wave-button border-2 border-gray-600 py-2 rounded-lg transition duration-150 hover:border-teal-400 active" data-wave="sine">
                             Sinus
                         </button>
@@ -103,6 +126,15 @@
                         </button>
                         <button class="wave-button border-2 border-gray-600 py-2 rounded-lg transition duration-150 hover:border-teal-400" data-wave="triangle">
                             Triangel
+                        </button>
+                        <button class="wave-button border-2 border-gray-600 py-2 rounded-lg transition duration-150 hover:border-teal-400" data-wave="whitenoise">
+                            Vitt Brus
+                        </button>
+                        <button class="wave-button border-2 border-gray-600 py-2 rounded-lg transition duration-150 hover:border-teal-400" data-wave="pinknoise">
+                            Rosa Brus
+                        </button>
+                        <button class="wave-button border-2 border-gray-600 py-2 rounded-lg transition duration-150 hover:border-teal-400" data-wave="brownnoise">
+                            Brunt Brus
                         </button>
                     </div>
                 </div>
@@ -122,38 +154,48 @@
 
             <!-- Höger kolumn: Visualiseringar -->
             <div class="flex-1 mt-8 lg:mt-0">
+                
                 <!-- Spektrumanalysator -->
-                <div class="mt-0"> 
-                    <div class="flex justify-between items-center mb-3">
-                        <label class="block font-medium text-lg">Spektrumanalysator</label>
-                        <button id="analyserScaleToggle" class="toggle-button text-xs border-2 border-gray-600 py-1 px-2 rounded-lg transition duration-150 hover:border-teal-400" data-scale="log">
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-xl font-semibold">Spektrumanalysator</h2>
+                        <button id="freqScaleToggle" class="px-3 py-1 text-sm border-2 border-gray-600 rounded-lg transition duration-150 hover:border-teal-400" data-scale="log">
                             Skala: Log
                         </button>
                     </div>
-                    <canvas id="analyserCanvas" class="w-full h-32 bg-gray-900 rounded-lg border border-gray-600"></canvas>
+                    <canvas id="analyserCanvas" width="500" height="200" class="w-full h-auto"></canvas>
                     <!-- Frekvensskala -->
-                    <div id="freqScaleLabels" class="flex justify-between text-xs text-gray-400 mt-1 px-1">
-                        <span id="fLabel1">0 Hz</span>
-                        <span id="fLabel2">5 kHz</span>
-                        <span id="fLabel3">10 kHz</span>
+                    <div id="freqScaleContainer" class="flex justify-between text-xs text-gray-400 mt-1 px-1 font-mono">
+                        <span id="fLabel1">20 Hz</span>
+                        <span id="fLabel2">1 kHz</span>
+                        <span id="fLabel3">5 kHz</span>
                         <span id="fLabel4">15 kHz</span>
-                        <span id="freqScaleEnd">20 kHz+</span>
+                        <span id="freqScaleEnd">22k Hz</span>
                     </div>
                 </div>
 
                 <!-- Oscilloskop -->
-                <div class="mt-8">
-                     <div class="flex justify-between items-center mb-3">
-                        <label class="block font-medium text-lg">Oscilloskop</label>
-                        <button id="oscTriggerToggle" class="toggle-button text-xs border-2 border-gray-600 py-1 px-2 rounded-lg transition duration-150 hover:border-teal-400" data-triggered="false">
+                <div class="mt-6">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-xl font-semibold">Oscilloskop</h2>
+                        <button id="oscTriggerToggle" class="px-3 py-1 text-sm border-2 border-gray-600 rounded-lg transition duration-150 hover:border-teal-400">
                             Trigger: Av
                         </button>
                     </div>
-                    <canvas id="oscCanvas" class="w-full h-32 bg-gray-900 rounded-lg border border-gray-600"></canvas>
+                    <canvas id="oscilloscopeCanvas" width="500" height="200" class="w-full h-auto"></canvas>
                     <!-- Tidsskala -->
-                    <div class="flex justify-between text-xs text-gray-400 mt-1 px-1">
+                    <div class="flex justify-between text-xs text-gray-400 mt-1 px-1 font-mono">
                         <span>0 ms</span>
-                        <span id="timeScaleEnd">-- ms</span>
+                        <span id="timeScaleEnd">43 ms</span>
+                    </div>
+                    <!-- Tidszoom-reglage -->
+                    <div class="mt-4">
+                        <label for="oscZoomSlider" class="block text-sm font-medium text-gray-400">Tidszoom</label>
+                        <input id="oscZoomSlider" type="range" min="0" max="100" value="0" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer range-lg">
+                        <div class="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>0%</span>
+                            <span>100%</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -161,196 +203,321 @@
     </div>
 
     <script>
+        // DOM-element
         const toggleButton = document.getElementById('toggleButton');
+        const frequencyContainer = document.getElementById('frequencyContainer');
         const frequencySlider = document.getElementById('frequencySlider');
         const frequencyValue = document.getElementById('frequencyValue');
         const volumeSlider = document.getElementById('volumeSlider');
+        const volumeValue = document.getElementById('volumeValue');
         const waveButtons = document.querySelectorAll('.wave-button');
         const fftSizeSelect = document.getElementById('fftSizeSelect');
         
         // Canvas-element
         const canvas = document.getElementById('analyserCanvas');
-        let canvasCtx = canvas.getContext('2d');
-        const oscCanvas = document.getElementById('oscCanvas');
-        let oscCanvasCtx = oscCanvas.getContext('2d');
+        const canvasCtx = canvas.getContext('2d');
+        const oscCanvas = document.getElementById('oscilloscopeCanvas');
+        const oscCanvasCtx = oscCanvas.getContext('2d');
 
-        // Skal-etiketter och knappar
-        const freqScaleEnd = document.getElementById('freqScaleEnd');
-        const freqScaleLabels = document.getElementById('freqScaleLabels');
-        // Hämta de nya ID:na för etiketterna
+        // Skal-etiketter
+        const timeScaleEnd = document.getElementById('timeScaleEnd');
+        const freqScaleContainer = document.getElementById('freqScaleContainer');
         const fLabel1 = document.getElementById('fLabel1');
         const fLabel2 = document.getElementById('fLabel2');
         const fLabel3 = document.getElementById('fLabel3');
         const fLabel4 = document.getElementById('fLabel4');
-        const timeScaleEnd = document.getElementById('timeScaleEnd');
-        const analyserScaleToggle = document.getElementById('analyserScaleToggle');
-    const oscTriggerToggle = document.getElementById('oscTriggerToggle');
+        const freqScaleEnd = document.getElementById('freqScaleEnd');
+        const freqScaleToggle = document.getElementById('freqScaleToggle');
+        const oscTriggerToggle = document.getElementById('oscTriggerToggle');
+        const oscZoomSlider = document.getElementById('oscZoomSlider');
 
-    // Web Audio API-variabler
-    let audioContext;
-    let oscillator;
-    let gainNode;
-    let analyser;
-    let dataArray; // För frekvens
-    let timeDataArray; // För vågform (oscilloskop)
+        // Web Audio API-variabler
+        let audioContext;
+        let oscillator; // För vågformer
+        let noiseSource; // För brus
+        let gainNode;
+        let analyser;
+        let dataArray; // För frekvensdata
+        let timeDataArray; // För tidsdata (vågform)
+        let isPlaying = false;
+        let currentWaveType = 'sine';
+        let isFreqScaleLog = true;
+        let isOscTriggered = false;
+        let animationFrameId;
 
-    let isPlaying = false;
-    let currentWaveform = 'sine';
-    let isAnalyserLog = true; // Starta med logaritmisk skala
-    let isOscTriggered = false; // Starta med trigger av
+        // För brusgeneratorer
+        let pinkNoiseNode;
+        let brownNoiseNode;
 
-    // Konstanter för logaritmisk slider
-    const minFreq = 20; 
-    const maxFreq = 20000; 
-    const minLog = Math.log(minFreq);
-    const maxLog = Math.log(maxFreq);
-    const logScale = (maxLog - minLog) / 1000; // 1000 är sliderns max-värde
+        // Konstanter för logaritmisk slider
+        const minFreq = 20; 
+        const maxFreq = 20000;
+        const minLog = Math.log(minFreq);
+        const maxLog = Math.log(maxFreq);
+        const logScale = (maxLog - minLog) / 1000; // 1000 är sliderns max-värde
 
-    // --- Frekvensslider-funktioner ---
-    function sliderToFrequency(sliderValue) {
-        const freq = Math.exp(minLog + logScale * sliderValue);
-        return Math.round(freq);
-    }
-    
-    function frequencyToSlider(frequency) {
-        const sliderValue = (Math.log(frequency) - minLog) / logScale;
-        return Math.round(sliderValue);
-    }
-
-    /**
-     * Hjälpfunktion för att uppdatera tidsskalan på oscilloskopet
-     */
-    function updateTimeScaleLabel() {
-        if (!audioContext || !analyser) return;
-        const timeWindowMs = (analyser.fftSize / audioContext.sampleRate) * 1000;
-        timeScaleEnd.textContent = `${timeWindowMs.toFixed(1)} ms`;
-    }
-
-    // Sätt startpositionen för slidern till 440 Hz
-    frequencySlider.value = frequencyToSlider(440);
-    frequencyValue.textContent = '440 Hz';
-
-
-    // Initiera AudioContext
-    function initAudio() {
-        if (audioContext) return; 
-
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        oscillator = audioContext.createOscillator();
-        oscillator.type = currentWaveform;
-        oscillator.frequency.setValueAtTime(sliderToFrequency(frequencySlider.value), audioContext.currentTime);
+        // --- Frekvensslider-funktioner ---
+        function sliderToFrequency(sliderValue) {
+            const freq = Math.exp(minLog + logScale * sliderValue);
+            return Math.round(freq);
+        }
         
-        gainNode = audioContext.createGain();
-        gainNode.gain.setValueAtTime(volumeSlider.value / 100, audioContext.currentTime);
+        function frequencyToSlider(frequency) {
+            const sliderValue = (Math.log(frequency) - minLog) / logScale;
+            return Math.round(sliderValue);
+        }
 
-        analyser = audioContext.createAnalyser();
-        analyser.fftSize = parseInt(fftSizeSelect.value, 10); // Läs från dropdown
-        const bufferLength = analyser.frequencyBinCount; // 1024
-        dataArray = new Uint8Array(bufferLength); 
-        timeDataArray = new Uint8Array(analyser.fftSize);
+        /**
+         * Hjälpfunktion för att uppdatera tidsskalan på oscilloskopet
+         */
+        function updateTimeScaleLabel() {
+            if (!audioContext || !analyser) {
+                // Sätt ett standardvärde om ljudet inte är igång
+                timeScaleEnd.textContent = `... ms`;
+                return;
+            }
+            
+            // Hämta zoom-värde (0-100)
+            const zoomLevel = parseInt(oscZoomSlider.value, 10);
+            
+            // 0 zoom = 100% av tiden. 100 zoom = 10% av tiden.
+            const timeScaleFactor = (1 - (zoomLevel * 0.9 / 100));
+            
+            // Totala tidsfönstret för hela bufferten
+            const totalTimeWindowMs = (analyser.fftSize / audioContext.sampleRate) * 1000;
+            
+            // Det visade tidsfönstret, justerat för zoom
+            const displayedTimeWindowMs = totalTimeWindowMs * timeScaleFactor;
+            
+            timeScaleEnd.textContent = `${displayedTimeWindowMs.toFixed(1)} ms`;
+        }
 
-        // Sätt canvas-upplösningen
-        canvas.width = canvas.clientWidth;
-        canvas.height = canvas.clientHeight;
-        canvasCtx = canvas.getContext('2d'); 
+        // Sätt startpositionen för slidern till 440 Hz
+        frequencySlider.value = frequencyToSlider(440);
+        frequencyValue.textContent = `${sliderToFrequency(frequencySlider.value)} Hz`;
 
-        oscCanvas.width = oscCanvas.clientWidth;
-        oscCanvas.height = oscCanvas.clientHeight;
-            oscCanvasCtx = oscCanvas.getContext('2d');
+        // --- Brusgenerator-funktioner ---
+        function createNoiseGenerator(type) {
+            if (!audioContext) return null;
+            
+            const bufferSize = 2 * audioContext.sampleRate; // 2 sekunder
+            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+            const output = buffer.getChannelData(0);
 
-            // Uppdatera skal-etiketter
-            const nyquist = audioContext.sampleRate / 2;
-            updateTimeScaleLabel(); // Använd hjälpfunktionen
+            switch (type) {
+                case 'whitenoise':
+                    for (let i = 0; i < bufferSize; i++) {
+                        output[i] = Math.random() * 2 - 1;
+                    }
+                    break;
+                case 'pinknoise':
+                    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+                    for (let i = 0; i < bufferSize; i++) {
+                        const white = Math.random() * 2 - 1;
+                        b0 = 0.99886 * b0 + white * 0.0555179;
+                        b1 = 0.99332 * b1 + white * 0.0750759;
+                        b2 = 0.96900 * b2 + white * 0.1538520;
+                        b3 = 0.86650 * b3 + white * 0.3104856;
+                        b4 = 0.55000 * b4 + white * 0.5329522;
+                        b5 = -0.7616 * b5 - white * 0.0168980;
+                        output[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
+                        output[i] *= 0.11; // Skala ner
+                        b6 = white * 0.115926;
+                    }
+                    break;
+                case 'brownnoise':
+                    let lastOut = 0.0;
+                    for (let i = 0; i < bufferSize; i++) {
+                        const white = Math.random() * 2 - 1;
+                        output[i] = (lastOut + (0.02 * white)) / 1.02;
+                        lastOut = output[i];
+                        output[i] *= 3.5; // Skala upp
+                    }
+                    break;
+            }
 
-            // Sätt initiala etiketter (vi börjar i Log-läge)
-            fLabel1.textContent = '20 Hz';
-            fLabel2.textContent = '100 Hz';
-            fLabel3.textContent = '1 kHz';
-            fLabel4.textContent = '10 kHz';
-            freqScaleEnd.textContent = `${(nyquist / 1000).toFixed(1)} kHz`;
+            const source = audioContext.createBufferSource();
+            source.buffer = buffer;
+            source.loop = true;
+            return source;
+        }
 
-            // Koppla ihop noderna: Oscillator -> Gain -> ANALYSER -> Högtalare
-            oscillator.connect(gainNode);
-            gainNode.connect(analyser);
-            analyser.connect(audioContext.destination); 
 
-            oscillator.start();
-            audioContext.suspend(); // Pausa direkt
-            drawVisualizations(); // Starta visualiseringsloopen
+        // --- Huvudfunktion för ljud ---
+        async function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            if (isPlaying) {
+                // Stoppa ljudet
+                if (oscillator) {
+                    oscillator.stop();
+                    oscillator.disconnect();
+                    oscillator = null;
+                }
+                if (noiseSource) {
+                    noiseSource.stop();
+                    noiseSource.disconnect();
+                    noiseSource = null;
+                }
+                
+                gainNode.disconnect();
+                analyser.disconnect();
+                
+                // Avbryt visualiseringsloopen
+                if (animationFrameId) {
+                    cancelAnimationFrame(animationFrameId);
+                }
+
+                isPlaying = false;
+                toggleButton.textContent = 'Starta Ljud';
+                toggleButton.classList.remove('bg-red-600', 'hover:bg-red-500');
+                toggleButton.classList.add('bg-teal-600', 'hover:bg-teal-500');
+            } else {
+                // Starta ljudet
+                gainNode = audioContext.createGain();
+                gainNode.gain.setValueAtTime(volumeSlider.value / 100, audioContext.currentTime);
+
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = parseInt(fftSizeSelect.value, 10); // Läs från dropdown
+                const bufferLength = analyser.frequencyBinCount; // 1024
+                dataArray = new Uint8Array(bufferLength); 
+                timeDataArray = new Uint8Array(analyser.fftSize);
+
+                // --- Ljudkäll-logik ---
+                if (currentWaveType.includes('noise')) {
+                    // Skapa brus
+                    noiseSource = createNoiseGenerator(currentWaveType);
+                    noiseSource.connect(gainNode);
+                    noiseSource.start();
+                } else {
+                    // Skapa oscillator
+                    oscillator = audioContext.createOscillator();
+                    oscillator.type = currentWaveType;
+                    const freq = sliderToFrequency(frequencySlider.value);
+                    oscillator.frequency.setValueAtTime(freq, audioContext.currentTime);
+                    oscillator.connect(gainNode);
+                    oscillator.start();
+                }
+                // ---------------------
+
+                gainNode.connect(analyser);
+                analyser.connect(audioContext.destination);
+                
+                isPlaying = true;
+                toggleButton.textContent = 'Stoppa Ljud';
+                toggleButton.classList.remove('bg-teal-600', 'hover:bg-teal-500');
+                toggleButton.classList.add('bg-red-600', 'hover:bg-red-500');
+
+                // Starta visualiseringen
+                draw();
+
+                // Uppdatera skal-etiketter
+                const nyquist = audioContext.sampleRate / 2;
+                updateTimeScaleLabel(); // Använd hjälpfunktionen
+                updateFreqScaleLabels(nyquist); // Uppdatera frekvensskalan
+            }
         }
 
         // --- Event Listeners ---
-        
-        // Huvudknapp för att växla ljud på/av
-        toggleButton.addEventListener('click', () => {
-            if (!audioContext) {
-                initAudio();
-            }
-            if (isPlaying) {
-                audioContext.suspend(); 
-                toggleButton.textContent = 'Starta Ljud';
-                toggleButton.classList.remove('bg-red-500', 'hover:bg-red-400');
-                toggleButton.classList.add('bg-teal-500', 'hover:bg-teal-400');
-            } else {
-                audioContext.resume(); 
-                toggleButton.textContent = 'Stoppa Ljud';
-                toggleButton.classList.remove('bg-teal-500', 'hover:bg-teal-400');
-                toggleButton.classList.add('bg-red-500', 'hover:bg-red-400');
-            }
-            isPlaying = !isPlaying;
-        });
+        toggleButton.addEventListener('click', initAudio);
 
-        // Frekvensreglaget
-        frequencySlider.addEventListener('input', () => {
-            const freq = sliderToFrequency(frequencySlider.value);
+        frequencySlider.addEventListener('input', (e) => {
+            const freq = sliderToFrequency(e.target.value);
             frequencyValue.textContent = `${freq} Hz`;
-            if (oscillator) {
-                oscillator.frequency.setTargetAtTime(freq, audioContext.currentTime, 0.01);
+            if (oscillator && isPlaying) {
+                oscillator.frequency.setValueAtTime(freq, audioContext.currentTime);
             }
         });
 
-        // Volymreglaget
-        volumeSlider.addEventListener('input', () => {
-            if (gainNode) {
-                gainNode.gain.setTargetAtTime(volumeSlider.value / 100, audioContext.currentTime, 0.01);
+        volumeSlider.addEventListener('input', (e) => {
+            const volume = e.target.value;
+            volumeValue.textContent = `${volume} %`;
+            if (gainNode && isPlaying) {
+                gainNode.gain.setValueAtTime(volume / 100, audioContext.currentTime);
             }
         });
 
-        // Vågforms-knappar
         waveButtons.forEach(button => {
             button.addEventListener('click', () => {
+                // Ta bort 'active' från alla
                 waveButtons.forEach(btn => btn.classList.remove('active'));
+                // Lägg till 'active' på den klickade
                 button.classList.add('active');
-                currentWaveform = button.dataset.wave;
-                if (oscillator) {
-                    oscillator.type = currentWaveform;
+                
+                const newWaveType = button.dataset.wave;
+                const wasNoise = currentWaveType.includes('noise');
+                const isNoise = newWaveType.includes('noise');
+                currentWaveType = newWaveType;
+
+                // Aktivera/inaktivera frekvensreglaget
+                if (isNoise) {
+                    frequencySlider.disabled = true;
+                    frequencyContainer.classList.add('opacity-50');
+                } else {
+                    frequencySlider.disabled = false;
+                    frequencyContainer.classList.remove('opacity-50');
+                }
+                
+                // Om ljudet spelas, starta om det med den nya typen
+                if (isPlaying) {
+                    // Stoppa först det gamla ljudet
+                    if (oscillator) {
+                        oscillator.stop();
+                        oscillator.disconnect();
+                        oscillator = null;
+                    }
+                    if (noiseSource) {
+                        noiseSource.stop();
+                        noiseSource.disconnect();
+                        noiseSource = null;
+                    }
+
+                    // Starta det nya ljudet
+                    if (isNoise) {
+                        noiseSource = createNoiseGenerator(currentWaveType);
+                        noiseSource.connect(gainNode);
+                        noiseSource.start();
+                    } else {
+                        oscillator = audioContext.createOscillator();
+                        oscillator.type = currentWaveType;
+                        const freq = sliderToFrequency(frequencySlider.value);
+                        oscillator.frequency.setValueAtTime(freq, audioContext.currentTime);
+                        oscillator.connect(gainNode);
+                        oscillator.start();
+                    }
                 }
             });
         });
-
-        // Toggle-knapp för analysatorskala
-        analyserScaleToggle.addEventListener('click', () => {
-            isAnalyserLog = !isAnalyserLog;
-            const nyquist = audioContext ? audioContext.sampleRate / 2 : 22050; // Fallback
-            
-            if (isAnalyserLog) {
-                analyserScaleToggle.textContent = 'Skala: Log';
-                analyserScaleToggle.classList.add('active');
-                // Byt till Log-etiketter
+        
+        function updateFreqScaleLabels(nyquist) {
+            const nyquistKHz = (nyquist / 1000).toFixed(1);
+            if (isFreqScaleLog) {
                 fLabel1.textContent = '20 Hz';
                 fLabel2.textContent = '100 Hz';
                 fLabel3.textContent = '1 kHz';
-                fLabel4.textContent = '10 kHz';
-                freqScaleEnd.textContent = `${(nyquist / 1000).toFixed(1)} kHz`;
+                fLabel4.textContent = '5 kHz';
+                freqScaleEnd.textContent = `${nyquistKHz} kHz`;
             } else {
-                analyserScaleToggle.textContent = 'Skala: Lin';
-                analyserScaleToggle.classList.remove('active');
-                // Byt till Lin-etiketter
-                fLabel1.textContent = '0 Hz';
-                fLabel2.textContent = '5 kHz';
-                fLabel3.textContent = '10 kHz';
-                fLabel4.textContent = '15 kHz';
-                freqScaleEnd.textContent = `${(nyquist / 1000).toFixed(1)} kHz`;
+                fLabel1.textContent = '0 kHz';
+                fLabel2.textContent = `${(nyquistKHz * 0.25).toFixed(1)} kHz`;
+                fLabel3.textContent = `${(nyquistKHz * 0.5).toFixed(1)} kHz`;
+                fLabel4.textContent = `${(nyquistKHz * 0.75).toFixed(1)} kHz`;
+                freqScaleEnd.textContent = `${nyquistKHz} kHz`;
+            }
+        }
+
+        // Toggle-knapp för frekvensskala (Log/Lin)
+        freqScaleToggle.addEventListener('click', () => {
+            isFreqScaleLog = !isFreqScaleLog;
+            if (isFreqScaleLog) {
+                freqScaleToggle.textContent = 'Skala: Log';
+            } else {
+                freqScaleToggle.textContent = 'Skala: Lin';
+            }
+            if(audioContext) {
+                 updateFreqScaleLabels(audioContext.sampleRate / 2);
             }
         });
 
@@ -380,18 +547,22 @@
             // Uppdatera oscilloskopets tidsskala
             updateTimeScaleLabel();
         });
+        
+        // Tidszoom-reglage
+        oscZoomSlider.addEventListener('input', () => {
+            // Uppdatera tidsskalan direkt när man drar
+            updateTimeScaleLabel();
+        });
 
         /**
          * Ritar båda visualiseringarna i en loop
          */
-        function drawVisualizations() {
-            requestAnimationFrame(drawVisualizations);
-            if (!analyser) return;
+        function draw() {
+            if (!isPlaying) return;
 
-            // --- 1. RITA SPEKTRUMANALYSATOR ---
+            animationFrameId = requestAnimationFrame(draw);
+
             drawSpectrum();
-
-            // --- 2. RITA OSCILLOSKOPET ---
             drawOscilloscope();
         }
 
@@ -399,121 +570,134 @@
          * Ritar spektrumanalysatorn
          */
         function drawSpectrum() {
-            const bufferLength = analyser.frequencyBinCount; // 1024
-            analyser.getByteFrequencyData(dataArray);
+            analyser.getByteFrequencyData(dataArray); // Få frekvensdata
 
-            canvasCtx.fillStyle = '#1a202c'; // bg-gray-900
+            canvasCtx.fillStyle = '#1f2937'; // Gray-800 (bakgrund)
             canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
-            canvasCtx.fillStyle = '#4fd1c5'; // teal-400
 
-            if (isAnalyserLog) {
+            const bufferLength = analyser.frequencyBinCount; // 1024
+            const barWidth = 2;
+            let barHeight;
+            let x = 0;
+            
+            const maxNyquist = audioContext ? audioContext.sampleRate / 2 : 22050;
+
+            if (isFreqScaleLog) {
                 // Logaritmisk ritning
-                const minLogFreq = Math.log10(minFreq); // Log av 20 Hz
-                const maxLogFreq = Math.log10(audioContext.sampleRate / 2); // Log av Nyquist
-                const logRange = maxLogFreq - minLogFreq;
-
-                // Hur många Hz per "bin"
-                const binWidthHz = (audioContext.sampleRate / 2) / bufferLength;
+                const minLogPlot = Math.log(1); // Starta från första bin
+                const maxLogPlot = Math.log(bufferLength);
+                const logRange = maxLogPlot - minLogPlot;
                 
-                let lastX = 0;
+                canvasCtx.fillStyle = '#67E8F9'; // Cyan
+
                 for (let i = 1; i < bufferLength; i++) {
-                    const freq = i * binWidthHz;
-                    if (freq < minFreq) continue; // Hoppa över allt under 20 Hz
+                    const logIndex = Math.log(i);
+                    const pos = (logIndex - minLogPlot) / logRange;
                     
-                    const logFreq = Math.log10(freq);
-                    // Normalisera log-frekvensen till 0-1
-                    const xNorm = (logFreq - minLogFreq) / logRange;
-                    // Skala till canvas-bredd
-                    const x = xNorm * canvas.width;
+                    const x = pos * canvas.width;
                     
-                    const barHeight = (dataArray[i] / 255) * canvas.height;
-                    // Rita rektangel från förra x till nuvarande x
-                    canvasCtx.fillRect(lastX, canvas.height - barHeight, x - lastX + 1, barHeight);
-                    lastX = x;
+                    // Beräkna nästa position för att bestämma bredden
+                    const logIndexNext = Math.log(i + 1);
+                    const posNext = (logIndexNext - minLogPlot) / logRange;
+                    const width = (posNext * canvas.width) - x;
+
+                    barHeight = dataArray[i] * (canvas.height / 255);
+                    canvasCtx.fillRect(x, canvas.height - barHeight, Math.max(1, width), barHeight);
                 }
 
             } else {
-                // Linjär ritning (som tidigare)
-                const barWidth = (canvas.width / bufferLength);
-                let x = 0;
+                // Linjär ritning
+                const barWidth = (canvas.width / bufferLength) * 1.5;
+                
                 for (let i = 0; i < bufferLength; i++) {
-                    const barHeight = (dataArray[i] / 255) * canvas.height;
+                    barHeight = dataArray[i] * (canvas.height / 255); // Skala till canvas-höjd
+
+                    canvasCtx.fillStyle = '#67E8F9'; // Cyan
                     canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
-                    x += barWidth;
+
+                    x += barWidth + 1; // 1px mellanrum
                 }
             }
-        }
-        
-        /**
-         * Hittar en stabil trigger-punkt för oscilloskopet
-         */
-        function findTriggerPoint(data) {
-            // Leta efter en stigande "zero-crossing" (från < 128 till >= 128)
-            // Vi börjar en bit in i bufferten för att undvika konstigheter
-            const searchLength = data.length / 2; // Leta i första halvan
-            for (let i = 1; i < searchLength; i++) {
-                if (data[i - 1] < 128 && data[i] >= 128) {
-                    return i; // Hittade en trigger-punkt
-                }
-            }
-            return 0; // Hittade ingen, starta från början
         }
 
         /**
-         * Ritar oscilloskopet
+         * Ritar oscilloskopet (vågformen)
          */
         function drawOscilloscope() {
-            const bufferLength = analyser.fftSize; // 2048
-            analyser.getByteTimeDomainData(timeDataArray);
+            analyser.getByteTimeDomainData(timeDataArray); // Få tidsdata
 
-            oscCanvasCtx.fillStyle = '#1a202c'; // bg-gray-900
+            oscCanvasCtx.fillStyle = '#1f2937'; // Gray-800 (bakgrund)
             oscCanvasCtx.fillRect(0, 0, oscCanvas.width, oscCanvas.height);
+
+            const totalPoints = timeDataArray.length; // e.g., 2048
+            let startPoint = 0;
+
+            // Hantera zoom
+            const zoomLevel = parseInt(oscZoomSlider.value, 10); // 0-100
+            // 0 zoom = 100% av punkterna. 100 zoom = 10% av punkterna.
+            const pointsToShow = totalPoints * (1 - (zoomLevel * 0.9 / 100));
+            const effectivePoints = Math.max(50, pointsToShow);
+            const zoomStartPoint = Math.floor((totalPoints - effectivePoints) / 2);
+            
+            // Hitta triggerpunkt (zero-crossing) om aktivt
+            if (isOscTriggered) {
+                let found = false;
+                // Leta inom den första halvan av fönstret
+                for (let i = 0; i < totalPoints / 2; i++) {
+                    // Leta efter en punkt som går från < 128 till >= 128
+                    if (timeDataArray[i] < 128 && timeDataArray[i + 1] >= 128) {
+                        startPoint = i;
+                        found = true;
+                        break;
+                    }
+                }
+                // Om ingen hittades, rita från zoom-startpunkten
+                if (!found) {
+                     startPoint = zoomStartPoint;
+                }
+            } else {
+                // Om trigger är av, starta från zoom-startpunkten
+                startPoint = zoomStartPoint;
+            }
+
             oscCanvasCtx.lineWidth = 2;
-            oscCanvasCtx.strokeStyle = '#4fd1c5'; // teal-400
+            oscCanvasCtx.strokeStyle = '#67E8F9'; // Cyan
             oscCanvasCtx.beginPath();
 
-            const sliceWidth = oscCanvas.width * 1.0 / (bufferLength / 2); // Rita bara halva bufferten för att zooma in
-            let xOsc = 0;
-            
-            // Hitta startindex
-            let startIndex = 0;
-            if (isOscTriggered) {
-                // Hitta en stabil startpunkt
-                startIndex = findTriggerPoint(timeDataArray);
-            }
-            
-            // Rita bara halva bufferten (1024 punkter), från startindex
-            const drawLength = bufferLength / 2;
+            const sliceWidth = oscCanvas.width * 1.0 / effectivePoints;
+            let x = 0;
 
-            for (let i = 0; i < drawLength; i++) {
-                // Hämta datapunkt, se till att index "loopar" runt
-                const dataIndex = (startIndex + i) % bufferLength;
-                const v = timeDataArray[dataIndex] / 128.0; // Normalisera (0.0 - 2.0)
-                const y = v * oscCanvas.height / 2; // Skala (0 - canvas.height)
+            for (let i = 0; i < effectivePoints; i++) {
+                const dataIndex = (startPoint + i) % totalPoints; // Se till att vi wrappar
+                const v = timeDataArray[dataIndex] / 128.0; // Värde mellan 0.0 och 2.0
+                const y = v * oscCanvas.height / 2;
 
                 if (i === 0) {
-                    oscCanvasCtx.moveTo(xOsc, y);
+                    oscCanvasCtx.moveTo(x, y);
                 } else {
-                    oscCanvasCtx.lineTo(xOsc, y);
+                    oscCanvasCtx.lineTo(x, y);
                 }
-                xOsc += sliceWidth;
+                x += sliceWidth;
             }
 
             oscCanvasCtx.lineTo(oscCanvas.width, oscCanvas.height / 2);
             oscCanvasCtx.stroke();
         }
 
-        // Se till att canvas ändrar storlek om fönstret gör det
-        window.addEventListener('resize', () => {
-            if (canvasCtx) {
-                canvas.width = canvas.clientWidth;
-                canvas.height = canvas.clientHeight;
+        // Se till att canvas-elementen har rätt storlek från början
+        function resizeCanvas() {
+            const containerWidth = canvas.parentElement.clientWidth;
+            if (containerWidth > 0) {
+                 canvas.width = containerWidth;
+                 oscCanvas.width = containerWidth;
             }
-            if (oscCanvasCtx) {
-                oscCanvas.width = oscCanvas.clientWidth;
-                oscCanvas.height = oscCanvas.clientHeight;
-            }
-        });
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Kör en gång vid start efter en liten fördröjning
+        setTimeout(resizeCanvas, 100);
+
     </script>
 </body>
 </html>
