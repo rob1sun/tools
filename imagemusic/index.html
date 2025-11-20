@@ -118,7 +118,7 @@
                 <!-- 4. Yttre Känslighet (Harmoni) -->
                 <div>
                     <label for="outerSensitivity" class="block text-sm font-medium mb-1">4. Harmoni (Not/Ackord) Känslighet</label>
-                    <input type="range" id="outerSensitivity" value="3.0" min="5.0" max="1.0" step="0.1" oninput="updateSensitivityValue(this, 'outerSensitivityDescription')" onchange="redrawGrid()">
+                    <input type="range" id="outerSensitivity" value="3.0" min="1.0" max="5.0" step="0.1" oninput="updateSensitivityValue(this, 'outerSensitivityDescription')" onchange="redrawGrid()">
                     <p class="text-xs text-gray-400 mt-1">Variation: <span id="outerSensitivityDescription" class="font-semibold">3.0</span> (Högre = Mer Ackordbyte)</p>
                 </div>
 
@@ -609,4 +609,5 @@
 
     </script>
 </body>
+
 </html>
