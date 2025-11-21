@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CertGenerator Pro - Skapa Certifikat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Forge library för krypto-operationer i webbläsaren -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/forge/1.3.1/forge.min.js"></script>
+
+    <style>
+        body {
+            background-color: #f3f4f6;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .hidden { display: none; }
+        
+        /* Stil för kod-block */
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <!-- Huvudcontainer -->
+    <div class="container mx-auto px-4 py-8 max-w-5xl">
+        
+        <!-- Header -->
+        <header class="mb-8 text-center">
+            <h1 class="text-4xl font-bold text-blue-700 mb-2"><i class="fas fa-file-signature"></i> CertGenerator Pro</h1>
+            <p class="text-gray-600">Generera X.509-certifikat och konfigurationsprofiler direkt i webbläsaren.</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Vänster kolumn: Inställningar -->
+            <div class="lg:col-span-1 space-y-6">
+                
+                <!-- Steg 1: Grundläggande Info -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-xl font-semibold mb-4 border-b pb-2"><i class="fas fa-info-circle text-blue-500"></i> 1. Information</h2>
+                    
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Common Name (CN)</label>
+                            <input type="text" id="cn" value="Min Enhet" placeholder="t.ex. myserver.local eller Mitt Namn" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-blue-500 focus:ring focus:ring-blue-200">
+                            <p class="text-xs text-gray-500 mt-1">Domännamn eller enhetsnamn.</p>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Organisation (O)</label>
+                            <input type="text" id="org" value="Mitt Företag AB" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Landskod (C)</label>
+                            <input type="text" id="country" value="SE" maxlength="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 uppercase">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Giltighetstid (år)</label>
+                            <input type="number" id="validity" value="5" min="1" max="20" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Steg 2: Typ och Säkerhet -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-xl font-semibold mb-4 border-b pb-2"><i class="fas fa-cog text-blue-500"></i> 2. Konfiguration</h2>
+                    
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Typ av Certifikat</label>
+                            <select id="certType" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 bg-white">
+                                <option value="root">Root CA (Självsignerat)</option>
+                                <option value="server">Server (SSL/TLS)</option>
+                                <option value="client">Klient (ID/Auth)</option>
+                            </select>
+                        </div>
+
+                        <div id="sanContainer" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700">Alternativa namn (SAN)</label>
+                            <input type="text" id="san" placeholder="IP:192.168.1.1, DNS:myserver.local" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2">
+                            <p class="text-xs text-gray-500 mt-1">Separera med kommatecken. Viktigt för webbservrar.</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Nyckelstorlek</label>
+                            <select id="keySize" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 bg-white">
+                                <option value="2048">RSA 2048 bit (Standard)</option>
+                                <option value="4096">RSA 4096 bit (Säkrare, långsammare)</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Lösenord för .p12 (Valfritt)</label>
+                            <input type="password" id="p12Password" placeholder="Lämna tomt för inget lösen" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2">
+                        </div>
+                    </div>
+
+                    <button onclick="startGeneration()" class="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded shadow transition duration-200 flex justify-center items-center gap-2">
+                        <i class="fas fa-magic"></i> Generera Certifikat
+                    </button>
+                </div>
+            </div>
+
+            <!-- Höger kolumn: Output och Nedladdning -->
+            <div class="lg:col-span-2 space-y-6">
+                
+                <!-- Status och Preview -->
+                <div class="bg-gray-900 text-green-400 rounded-lg shadow-md p-6 font-mono text-sm h-96 overflow-y-auto" id="consoleOutput">
+                    <p>> Välkommen till CertGenerator Pro v1.0</p>
+                    <p>> Fyll i formuläret till vänster och klicka på "Generera" för att starta.</p>
+                    <p>> All generering sker lokalt i din webbläsare. Inga nycklar skickas över nätet.</p>
+                    <br>
+                    <p class="text-gray-500" id="waitingText">Väntar på inmatning...</p>
+                </div>
+
+                <!-- Nedladdningssektion (Dold tills generering är klar) -->
+                <div id="downloadSection" class="bg-white rounded-lg shadow-md p-6 hidden border-t-4 border-green-500">
+                    <h2 class="text-2xl font-bold mb-4 text-green-700"><i class="fas fa-check-circle"></i> Certifikatet är klart!</h2>
+                    <p class="mb-4 text-gray-600">Välj format baserat på vilken enhet du ska installera certifikatet på.</p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        
+                        <!-- Apple MobileConfig -->
+                        <div class="border rounded p-4 hover:bg-gray-50 transition cursor-pointer relative group">
+                            <div class="font-bold text-lg mb-1"><i class="fab fa-apple text-gray-800"></i> Apple (iOS/macOS)</div>
+                            <p class="text-sm text-gray-500 mb-3">Installerar certifikatet som en profil. Enklast för iPhone/iPad.</p>
+                            <button onclick="downloadAppleProfile()" class="bg-gray-800 text-white px-4 py-2 rounded text-sm hover:bg-black w-full">
+                                Ladda ner .mobileconfig
+                            </button>
+                        </div>
+
+                        <!-- Windows/Standard PFX -->
+                        <div class="border rounded p-4 hover:bg-gray-50 transition cursor-pointer group">
+                            <div class="font-bold text-lg mb-1"><i class="fab fa-windows text-blue-600"></i> Windows / Android</div>
+                            <p class="text-sm text-gray-500 mb-3">PKCS#12-format (.p12) som innehåller både certifikat och privat nyckel.</p>
+                            <button onclick="downloadP12()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 w-full">
+                                Ladda ner .p12
+                            </button>
+                        </div>
+
+                        <!-- Server PEM -->
+                        <div class="border rounded p-4 hover:bg-gray-50 transition cursor-pointer group">
+                            <div class="font-bold text-lg mb-1"><i class="fas fa-server text-indigo-600"></i> Linux / Webbservrar</div>
+                            <p class="text-sm text-gray-500 mb-3">Separata filer för certifikat (.crt) och privat nyckel (.key).</p>
+                            <div class="flex gap-2">
+                                <button onclick="downloadPEMCert()" class="bg-indigo-600 text-white px-2 py-2 rounded text-sm hover:bg-indigo-700 flex-1">Hämta .crt</button>
+                                <button onclick="downloadPEMKey()" class="bg-indigo-600 text-white px-2 py-2 rounded text-sm hover:bg-indigo-700 flex-1">Hämta .key</button>
+                            </div>
+                        </div>
+                        
+                         <!-- Text Copy -->
+                         <div class="border rounded p-4 hover:bg-gray-50 transition cursor-pointer group">
+                            <div class="font-bold text-lg mb-1"><i class="fas fa-copy text-gray-600"></i> Urklipp</div>
+                            <p class="text-sm text-gray-500 mb-3">Kopiera certifikatets textinnehåll.</p>
+                            <button onclick="copyToClipboard()" class="bg-gray-500 text-white px-4 py-2 rounded text-sm hover:bg-gray-600 w-full">
+                                Kopiera PEM
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Logik -->
+    <script>
+        // Globala variabler för att hålla genererad data
+        let generatedCertPEM = "";
+        let generatedPrivateKeyPEM = "";
+        let generatedP12Bytes = null;
+        let certObject = null;
+        let keyPairObject = null;
+
+        // UI-hantering
+        const consoleEl = document.getElementById('consoleOutput');
+        const downloadSec = document.getElementById('downloadSection');
+        const certTypeSelect = document.getElementById('certType');
+        const sanContainer = document.getElementById('sanContainer');
+
+        // Visa/dölj SAN-fältet baserat på certifikattyp
+        certTypeSelect.addEventListener('change', (e) => {
+            if (e.target.value === 'server') {
+                sanContainer.classList.remove('hidden');
+                // Lägg till standardvärde om tomt
+                const cn = document.getElementById('cn').value;
+                const san = document.getElementById('san');
+                if(!san.value && cn) san.value = "DNS:" + cn;
+            } else {
+                sanContainer.classList.add('hidden');
+            }
+        });
+
+        function log(msg, type="info") {
+            const p = document.createElement('p');
+            p.innerText = `> ${msg}`;
+            if (type === 'error') p.classList.add('text-red-500');
+            else if (type === 'success') p.classList.add('text-white', 'font-bold');
+            consoleEl.appendChild(p);
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+
+        // Huvudfunktion för generering (Async för att inte låsa UI)
+        async function startGeneration() {
+            // Återställ UI
+            downloadSec.classList.add('hidden');
+            document.getElementById('waitingText').style.display = 'none';
+            consoleEl.innerHTML = ""; 
+            log("Startar processen...", "info");
+
+            const config = {
+                cn: document.getElementById('cn').value || "Test Cert",
+                org: document.getElementById('org').value || "My Org",
+                country: document.getElementById('country').value || "SE",
+                validity: parseInt(document.getElementById('validity').value) || 1,
+                type: document.getElementById('certType').value,
+                keySize: parseInt(document.getElementById('keySize').value),
+                san: document.getElementById('san').value,
+                p12Pass: document.getElementById('p12Password').value || ""
+            };
+
+            // Använd setTimeout för att låta webbläsaren rendera loggarna innan tunga beräkningar
+            setTimeout(() => generateCertificateProcess(config), 100);
+        }
+
+        function generateCertificateProcess(config) {
+            try {
+                log(`Genererar ${config.keySize}-bit RSA nyckelpar (detta kan ta några sekunder)...`);
+                
+                // 1. Generera nycklar
+                const keys = forge.pki.rsa.generateKeyPair(config.keySize);
+                keyPairObject = keys;
+                log("Nycklar genererade framgångsrikt.");
+
+                // 2. Skapa certifikat
+                const cert = forge.pki.createCertificate();
+                cert.publicKey = keys.publicKey;
+                
+                // Sätt serienummer (random hex)
+                cert.serialNumber = forge.util.bytesToHex(forge.random.getBytesSync(16));
+                
+                // Datum
+                cert.validity.notBefore = new Date();
+                cert.validity.notAfter = new Date();
+                cert.validity.notAfter.setFullYear(cert.validity.notBefore.getFullYear() + config.validity);
+
+                // Attribut
+                const attrs = [{
+                    name: 'commonName',
+                    value: config.cn
+                }, {
+                    name: 'countryName',
+                    value: config.country
+                }, {
+                    shortName: 'ST',
+                    value: 'Sweden'
+                }, {
+                    name: 'organizationName',
+                    value: config.org
+                }];
+
+                cert.setSubject(attrs);
+                // För självsignerat är issuer samma som subject
+                cert.setIssuer(attrs); 
+
+                // Extensioner
+                const extensions = [{
+                    name: 'basicConstraints',
+                    cA: config.type === 'root', // true om Root CA
+                    critical: true
+                }, {
+                    name: 'keyUsage',
+                    keyCertSign: config.type === 'root',
+                    digitalSignature: true,
+                    nonRepudiation: true,
+                    keyEncipherment: true,
+                    dataEncipherment: true
+                }];
+
+                // Lägg till SAN om Server-cert
+                if (config.type === 'server' && config.san) {
+                    const sanParts = config.san.split(',');
+                    const altNames = sanParts.map(part => {
+                        part = part.trim();
+                        if (part.startsWith('IP:')) return { type: 7, ip: part.substring(3) };
+                        if (part.startsWith('DNS:')) return { type: 2, value: part.substring(4) };
+                        return { type: 2, value: part }; // Fallback till DNS
+                    });
+                    
+                    extensions.push({
+                        name: 'subjectAltName',
+                        altNames: altNames
+                    });
+                }
+
+                // Särskild hantering för SSL Server (ExtKeyUsage)
+                if (config.type === 'server') {
+                     extensions.push({
+                        name: 'extKeyUsage',
+                        serverAuth: true,
+                        clientAuth: true
+                    });
+                }
+
+                cert.setExtensions(extensions);
+
+                log("Signerar certifikat...");
+                // Signera med privat nyckel (självsignerat)
+                // OBS: Använder SHA-256
+                cert.sign(keys.privateKey, forge.md.sha256.create());
+                certObject = cert;
+
+                log("Konverterar format...");
+                
+                // PEM konvertering
+                generatedCertPEM = forge.pki.certificateToPem(cert);
+                generatedPrivateKeyPEM = forge.pki.privateKeyToPem(keys.privateKey);
+
+                // P12/PFX Skapande
+                const p12Asn1 = forge.pkcs12.toPkcs12Asn1(
+                    keys.privateKey, [cert], config.p12Pass,
+                    {algorithm: '3des', friendlyName: config.cn, generateLocalKeyId: true}
+                );
+                const p12Der = forge.asn1.toDer(p12Asn1).getBytes();
+                generatedP12Bytes = p12Der;
+
+                log("Generering klar!", "success");
+                downloadSec.classList.remove('hidden');
+                downloadSec.scrollIntoView({ behavior: 'smooth' });
+
+            } catch (err) {
+                console.error(err);
+                log("Fel vid generering: " + err.message, "error");
+            }
+        }
+
+        // --- Nedladdningsfunktioner ---
+
+        function downloadFile(filename, content, mimeType, isBinary = false) {
+            const blob = isBinary 
+                ? new Blob([new Uint8Array([...content].map(c => c.charCodeAt(0)))], { type: mimeType }) 
+                : new Blob([content], { type: mimeType });
+                
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function downloadPEMCert() {
+            downloadFile('certifikat.crt', generatedCertPEM, 'application/x-pem-file');
+        }
+
+        function downloadPEMKey() {
+            downloadFile('privat_nyckel.key', generatedPrivateKeyPEM, 'application/x-pem-file');
+        }
+
+        function downloadP12() {
+            downloadFile('identitet.p12', generatedP12Bytes, 'application/x-pkcs12', true);
+        }
+
+        function copyToClipboard() {
+            navigator.clipboard.writeText(generatedCertPEM).then(() => {
+                alert("Certifikat (PEM) kopierat till urklipp!");
+            });
+        }
+
+        // --- Apple MobileConfig Specifik Logik ---
+        function downloadAppleProfile() {
+            if (!certObject) return;
+
+            const cn = document.getElementById('cn').value;
+            const org = document.getElementById('org').value;
+            
+            // Vi behöver ta bort PEM headers/footers för payloaden i mobileconfig
+            let body = generatedCertPEM;
+            body = body.replace('-----BEGIN CERTIFICATE-----', '');
+            body = body.replace('-----END CERTIFICATE-----', '');
+            body = body.replace(/[\r\n]/g, '');
+
+            // Generera UUIDs
+            const payloadUUID = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+            const profileUUID = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+
+            // Skapa XML för .mobileconfig
+            // Notera: PayloadType 'com.apple.security.root' gör att iOS frågar om man vill installera det som en Trusted Profile
+            const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>PayloadContent</key>
+    <array>
+        <dict>
+            <key>PayloadCertificateFileName</key>
+            <string>${cn}.cer</string>
+            <key>PayloadContent</key>
+            <data>
+            ${body}
+            </data>
+            <key>PayloadDescription</key>
+            <string>Installerar certifikat för ${cn}</string>
+            <key>PayloadDisplayName</key>
+            <string>${cn}</string>
+            <key>PayloadIdentifier</key>
+            <string>com.example.cert.${payloadUUID}</string>
+            <key>PayloadType</key>
+            <string>com.apple.security.root</string>
+            <key>PayloadUUID</key>
+            <string>${payloadUUID}</string>
+            <key>PayloadVersion</key>
+            <integer>1</integer>
+        </dict>
+    </array>
+    <key>PayloadDisplayName</key>
+    <string>${cn} Installatör</string>
+    <key>PayloadIdentifier</key>
+    <string>com.example.profile.${profileUUID}</string>
+    <key>PayloadOrganization</key>
+    <string>${org}</string>
+    <key>PayloadRemovalDisallowed</key>
+    <false/>
+    <key>PayloadType</key>
+    <string>Configuration</string>
+    <key>PayloadUUID</key>
+    <string>${profileUUID}</string>
+    <key>PayloadVersion</key>
+    <integer>1</integer>
+</dict>
+</plist>`;
+
+            downloadFile('profil.mobileconfig', xml, 'application/x-apple-aspen-config');
+            alert("För iOS: Gå till Inställningar > Profiler hämtade för att installera efter nedladdning. Sedan Inställningar > Allmänt > Om > Inställningar för betrodda certifikat för att aktivera full tillit.");
+        }
+
+    </script>
+</body>
+</html>
